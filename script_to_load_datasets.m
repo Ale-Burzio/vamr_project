@@ -1,13 +1,8 @@
-clear all
-close all
-clc
-
 %% Setup
-ds = 0; % 0: KITTI, 1: Malaga, 2: parking
+ds = 2; % 0: KITTI, 1: Malaga, 2: parking
 
 if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
-    kitti_path = 'kitti';
     assert(exist('kitti_path', 'var') ~= 0);
     ground_truth = load([kitti_path '/poses/05.txt']);
     ground_truth = ground_truth(:, [end-8 end]);
@@ -39,7 +34,6 @@ end
 
 %% Bootstrap
 % need to set bootstrap_frames
-bootstrap_frames=[1,3];
 if ds == 0
     img0 = imread([kitti_path '/05/image_0/' ...
         sprintf('%06d.png',bootstrap_frames(1))]);
@@ -60,39 +54,6 @@ elseif ds == 2
 else
     assert(false);
 end
-
-%% Initialization
-
-[p1, p2, num_matches] = MatchedPoints(img0,img1);
-
-
-%p1 = load('../matches0001.txt');
-%p2 = load('../matches0002.txt');
-
-[P, R_C2_W, T_C2_W] = RelativePose(p2, p1, K, img0, img1);
-
-figure(1),
-imshow(img1);
-hold on;
-plot(p1(1,:), p1(2,:), 'bs');
-hold on;
-plot(p2(1,:), p2(2,:), 'rs');
-hold on;
-plot([p1(1,:);p2(1,:)], [p1(2,:);p2(2,:)], 'g-', 'Linewidth', 2);
-
-figure(2),
-plot3(P(1,:), P(2,:), P(3,:), 'o');
-plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-center_cam2_W = -R_C2_W'*T_C2_W;
-plotCoordinateFrame(R_C2_W',center_cam2_W, 0.8);
-text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,'Cam 2','fontsize',10,'color','k','FontWeight','bold');
-axis equal
-rotate3d on;
-grid
-
-
-return 
 
 %% Continuous operation
 range = (bootstrap_frames(2)+1):last_frame;
