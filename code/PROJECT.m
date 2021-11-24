@@ -1,7 +1,7 @@
 clear all
 close all
-clc
-
+% clc
+% addpath('C:\Users\edoar\Desktop\UNI\VAMR_Vision_Algorithms_for_Mobile_Robotics\project_new\')
 %% Setup
 ds = 0; % 0: KITTI, 1: Malaga, 2: parking
 
@@ -17,6 +17,7 @@ if ds == 0
         0 0 1];
 elseif ds == 1
     % Path containing the many files of Malaga 7.
+    malaga_path = 'malaga/malaga-urban-dataset-extract-07';
     assert(exist('malaga_path', 'var') ~= 0);
     images = dir([malaga_path ...
         '/malaga-urban-dataset-extract-07_rectified_800x600_Images']);
@@ -27,6 +28,7 @@ elseif ds == 1
         0 0 1];
 elseif ds == 2
     % Path containing images, depths and all...
+    parking_path='parking';
     assert(exist('parking_path', 'var') ~= 0);
     last_frame = 598;
     K = load([parking_path '/K.txt']);
@@ -63,30 +65,40 @@ end
 
 %% Initialization
 
-[keypoints_matched, num_matches] = MatchedPoints(img0,img1);
-p1 = keypoints_matched(2:-1:1,:);
-p2 = keypoints_matched(4:-1:3,:);
-[P, R_C2_W, T_C2_W] = RelativePose(p2, p1, K, img0, img1);
+[R_C2_W, T_C2_W] = initialization(img0,img1, K);
+T = [R_C2_W, T_C2_W; 0, 0, 0, 1]
 
-figure(1),
-imshow(img1);
-hold on;
-plot(p1(1,:), p1(2,:), 'bs');
-hold on;
-plot(p2(1,:), p2(2,:), 'rs');
-hold on;
-plot([p1(1,:);p2(1,:)], [p1(2,:);p2(2,:)], 'g-', 'Linewidth', 2);
+% check real solution
+if ds ==0
+    poses = load('kitti/poses/00.txt');  
+    R = zeros(3,3,4541);
+    T = zeros(3,1,4541);
+elseif ds == 1
+    poses = load('kitti/poses/00.txt');
+elseif ds == 2
+    poses = load('parking/poses.txt');
+    R = zeros(3,3,599);
+    T = zeros(3,1,599);
+end
 
-figure(2),
-plot3(P(1,:), P(2,:), P(3,:), 'o');
-plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-center_cam2_W = -R_C2_W'*T_C2_W;
-plotCoordinateFrame(R_C2_W',center_cam2_W, 0.8);
-text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,'Cam 2','fontsize',10,'color','k','FontWeight','bold');
-axis equal
-rotate3d on;
-grid
+R(1,1,:) = poses(:,1);
+R(1,2,:) = poses(:,2);
+R(1,3,:) = poses(:,3);
+R(2,1,:) = poses(:,5);
+R(2,2,:) = poses(:,6);
+R(2,3,:) = poses(:,7);
+R(3,1,:) = poses(:,9);
+R(3,2,:) = poses(:,10);
+R(3,3,:) = poses(:,11);
+T(1,1,:) = poses(:,4);
+T(2,1,:) = poses(:,8);
+T(3,1,:) = poses(:,12);
+%figure(8)
+%plot3(X,Y,Z)
+
+Rot = R(:,:,1) * R(:,:,3)';
+Trasl = T(:,:,1) - T(:,:,3);
+T_real = [Rot, Trasl; 0, 0, 0, 1]
 
 return 
 
@@ -106,6 +118,9 @@ for i = range
     else
         assert(false);
     end
+    
+    % [outputArg1,outputArg2] = continuousOperation(inputArg1,inputArg2)
+    
     % Makes sure that plots refresh.    
     pause(0.01);
     
