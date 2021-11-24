@@ -2,11 +2,11 @@ function [R_C2_W, T_C2_W] = initialization(img0,img1, K)
 %% MATCHED POINTS ----------------------------------------------------------
 
 % detect harris corners
-corners1 = detectHarrisFeatures(img0, 'FilterSize', 7, 'MinQuality', 0.001);
-corners2 = detectHarrisFeatures(img1, 'FilterSize', 7, 'MinQuality', 0.001);
+corners1 = detectHarrisFeatures(img0, 'FilterSize', 5, 'MinQuality', 0.0001);
+corners2 = detectHarrisFeatures(img1, 'FilterSize', 5, 'MinQuality', 0.0001);
 
 % select strongest
-N = 2000;
+N = 4000;
 points1 = selectStrongest(corners1,N);
 points2 = selectStrongest(corners2,N);
 
@@ -71,7 +71,7 @@ title('Image 3')
 
 % estimate fondamental Matrix
 [F, inliers] =estimateFundamentalMatrix(p1(1:2, :)', p2(1:2, :)', ...
-    'Method','RANSAC', 'DistanceThreshold', 0.01, 'NumTrials', 4000, 'InlierPercentage', 50, 'Confidence', 99.9);
+    'Method','RANSAC', 'DistanceThreshold', 0.01, 'NumTrials', 80000, 'Confidence', 99.99);
 inp1 = p1(:,inliers);
 inp2 = p2(:,inliers);
 figure(4),

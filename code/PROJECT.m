@@ -100,6 +100,8 @@ Rot = R(:,:,1) * R(:,:,3)';
 Trasl = T(:,:,1) - T(:,:,3);
 T_real = [Rot, Trasl; 0, 0, 0, 1]
 
+rotm2eul(Rot) * 57.2958
+rotm2eul(R_C2_W) * 57.2958
 return 
 
 %% Continuous operation
