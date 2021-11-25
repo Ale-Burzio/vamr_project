@@ -30,10 +30,11 @@ p1 = [p1;ones(1,lenp1)];
 p2 = [p2;ones(1,lenp2)];
 
 %eliminate matches with small displacement
+threshold = 3;
 distances = vecnorm(p1-p2);
 
-p1 = p1(:,distances>3);
-p2 = p2(:,distances>3);
+p1 = p1(:,distances>threshold);
+p2 = p2(:,distances>threshold);
 
 %% PLOT MATCH SOLUTION ----------------------------------------------------
 figure(1),
@@ -60,7 +61,7 @@ title('Image 3')
 %% RELATIVE POSE -----------------------------------------------------------
 
 % estimate fondamental Matrix
-[F, inliers] =estimateFundamentalMatrix(p1(1:2, :)', p2(1:2, :)', ...
+[F, inliers] = estimateFundamentalMatrix(p1(1:2, :)', p2(1:2, :)', ...
     'Method','RANSAC', 'DistanceThreshold', 0.01, 'NumTrials', 80000, 'Confidence', 99.99);
 inp1 = p1(:,inliers);
 inp2 = p2(:,inliers);
@@ -73,6 +74,8 @@ E=K.'*F*K;
 M1 = K * eye(3,4);
 M2 = K * [R_C2_W, T_C2_W];
 P = linearTriangulation(p1,p2,M1,M2);               % function file
+% tform = 
+% P = triangulate(p1,p2,)
 
 % eliminate negative and further points
 [~, nme] = size(P);
