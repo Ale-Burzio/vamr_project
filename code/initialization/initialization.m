@@ -30,20 +30,10 @@ p1 = [p1;ones(1,lenp1)];
 p2 = [p2;ones(1,lenp2)];
 
 %eliminate matches with small displacement
-[~, n_matches] = size(p1);
-distances = sqrt((p1(1,:) - p2(1,:)).^2 + (p1(2,:) - p2(2,:)).^2);
-j = 1;
-p1_new = [];
-p2_new = [];
-for i = 1:n_matches
-  if distances(:,i) > 3
-      p1_new(:,j) = p1(:,i);
-      p2_new(:,j) = p2(:,i);
-      j = j + 1;
-  end
-end
-p1 = p1_new;
-p2 = p2_new;
+distances = vecnorm(p1-p2);
+
+p1 = p1(:,distances>3);
+p2 = p2(:,distances>3);
 
 %% PLOT MATCH SOLUTION ----------------------------------------------------
 figure(1),
