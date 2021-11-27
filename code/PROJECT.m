@@ -17,7 +17,7 @@ if ds == 0
         0 0 1];
 elseif ds == 1
     % Path containing the many files of Malaga 7.
-    malaga_path = 'malaga/malaga-urban-dataset-extract-07';
+    malaga_path = 'malaga-urban-dataset-extract-07';
     assert(exist('malaga_path', 'var') ~= 0);
     images = dir([malaga_path ...
         '/malaga-urban-dataset-extract-07_rectified_800x600_Images']);
@@ -94,7 +94,7 @@ T(1,1,:) = poses(:,4);
 T(2,1,:) = poses(:,8);
 T(3,1,:) = poses(:,12);
 %figure(8)
-%plot3(X,Y,Z)
+%plot3(T(1,1,:),T(2,1,:),T(3,1,:))
 
 Rot = R(:,:,1) * R(:,:,3)';
 Trasl = T(:,:,1) - T(:,:,3);
@@ -105,7 +105,12 @@ Trasl_err = (Trasl - T_C2_W)'
 return 
 
 %% Continuous operation
-range = (bootstrap_frames(2)+1):last_frame;
+range = (bootstrap_frames(2)+1):last_frame;    
+
+% POINTTRACK INITIALIZZATION
+tracker = vision.PointTracker;
+initialize(tracker,points.Location,img1);
+        
 for i = range
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
     if ds == 0
@@ -121,10 +126,13 @@ for i = range
         assert(false);
     end
     
-    % [outputArg1,outputArg2] = continuousOperation(inputArg1,inputArg2)
+    [S_i,T_wc_i] = CO_processFrame(imgage, prev_image, S_i_prec);
+    T_wc_real = [R(:,:,1) * R(:,:,i)', T(:,:,1) - T(:,:,i)];
+    plotTrajectory(T_wc_i, T_wc_real);
     
     % Makes sure that plots refresh.    
     pause(0.01);
     
     prev_img = image;
+    S_i_prec = S_i
 end

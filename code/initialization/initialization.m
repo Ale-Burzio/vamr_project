@@ -30,37 +30,11 @@ lenp2 = length(p1);
 p1 = [p1;ones(1,lenp1)];
 p2 = [p2;ones(1,lenp2)];
 
-%eliminate matches with small displacement
+% eliminate matches with small displacement
 distances = vecnorm(p1-p2);
 threshold = 5;
 p1 = p1(:,distances>threshold);
 p2 = p2(:,distances>threshold);
-
-%% PLOT MATCH SOLUTION ----------------------------------------------------
-figure(1),
-imshow(img1);
-hold on;
-plot(p1(1,:), p1(2,:), 'bs');
-hold on;
-plot(p2(1,:), p2(2,:), 'rs');
-hold on;
-plot([p1(1,:);p2(1,:)], [p1(2,:);p2(2,:)], 'g-', 'Linewidth', 2);
-title('Output from Feature Detector, Descriptor and Matcher')
-
-figure(2),
-
-subplot(1,2,1)
-imshow(img0,[]);
-hold on
-plot(p1(1,:), p1(2,:), 'ys');
-title('Features detected and matched in img0')
-
-subplot(1,2,2)
-imshow(img1,[]);
-hold on
-plot(p2(1,:), p2(2,:), 'ys');
-title('Image 3')
-title('Features detected and matched in img1')
 
 %% RELATIVE POSE -----------------------------------------------------------
 
@@ -72,28 +46,39 @@ inp2 = p2(:,inliers);
 E=K.'*F*K;
 
 %decompose essential matrix
-[R_C2_W,T_C2_W] = fromEtoPos(E, inp1, inp2, K);                             % function file
-% M1 = K * eye(3,4);
-% M2 = K * [R_C2_W, T_C2_W];
-% P = linearTriangulation(inp1,inp2,M1,M2);
+[R_C2_W,T_C2_W] = fromEtoPos(E, inp1, inp2, K);
 
-p1 = inp1(1:2,:)';
-p2 = inp2(1:2,:)';
+% triangulate
+inp1 = inp1(1:2,:)';
+inp2 = inp2(1:2,:)';
 cameraParams = cameraParameters("IntrinsicMatrix",K');
 stereoParams = stereoParameters(cameraParams, cameraParams, R_C2_W', T_C2_W'); 
-P = triangulate(p1,p2,stereoParams)';
+P = triangulate(inp1,inp2,stereoParams)';
 
 % bundle adjustement
 % intrinsics = cameraParameters('IntrinsicMatrix',  K');
-% absolutePose = rigid3d(R_C2_W',T_C2_W');
-% imagePoints = inp2(1:2,:)';
-% xyzPoints = P(1:3,:)';
-% refinedPose = bundleAdjustmentMotion(xyzPoints,imagePoints,absolutePose,intrinsics);
-% 
-% R_C2_W = refinedPose.Rotation';
-% T_C2_W = refinedPose.Translation';
+% IDs = [1, 1, 1, 2, 2, 2]';
+% Rotations = [eye(3); R_C2_W'];
+% Traslatins = [0; 0;0 ;T_C2_W];
+% cameraPoses = table(IDs, Rotations, Traslatins);
+% image1Points = inp1;
+% image2Points = inp2;
+% [~, num_matches] = size(P);
+% ViewIds = [ones(1,num_matches), 2 * ones(1,num_matches)];
+% Points = [image1Points;image2Points];
+% pointTracks = pointTrack(ViewIds,Points);
+% xyzPoints = [P(1:3,:)';P(1:3,:)'];
+% size(ViewIds)
+% size(Points)
+% size(xyzPoints)
+% [xyzRefinedPoints,refinedPoses] = bundleAdjustment(xyzPoints,pointTracks,cameraPoses,intrinsics, ' PointsUndistorted', true);
+% R_C2_W = refinedPoses.Orientation;
+% R_C2_W = R_C2_W(4:6,1:3)';
+% T_C2_W = refinedPoses. Location;
+% T_C2_W = T_C2_W(4:6);
+% P = xyzRefinedPoints';
 
-% % eliminate negative and further points
+% eliminate negative and further points
 [~, nme] = size(P);
 for i = 1:nme
    if P(3,i) <=0 || P(3,i) > 200
@@ -103,14 +88,38 @@ for i = 1:nme
    end
 end
 
-%% PLOT POSE SOLUTION -----------------------------------------------------
+%% PLOT INITIALIZATION ----------------------------------------------------
 
+figure(1),
 
-figure(3),
-showMatchedFeatures(img0, img1, p1, p2);
+subplot(3,2,1),
+imshow(img0,[]);
+hold on
+plot(p1(1,:), p1(2,:), 'ys');
+title('Features detected and matched in img0')
+
+subplot(3,2,2),
+imshow(img1,[]);
+hold on
+plot(p2(1,:), p2(2,:), 'ys');
+title('Image 3')
+title('Features detected and matched in img1')
+
+subplot(3,2,3:4),
+imshow(img1);
+hold on;
+plot(p1(1,:), p1(2,:), 'bs');
+hold on;
+plot(p2(1,:), p2(2,:), 'rs');
+hold on;
+plot([p1(1,:);p2(1,:)], [p1(2,:);p2(2,:)], 'g-', 'Linewidth', 2);
+title('Output from Feature Detector, Descriptor and Matcher')
+
+subplot(3,2,5:6),
+showMatchedFeatures(img0, img1, inp1, inp2);
 title('Matching kept after RANSAC applied in estimateFondamentalMatrix')
 
-figure(4),
+figure(2),
 
 subplot(1,2,1)
 plot3(P(1,:), P(2,:), P(3,:), 'o');
