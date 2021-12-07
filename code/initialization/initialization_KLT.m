@@ -23,7 +23,7 @@ p2 = p2(valid_final,:)';
 
 % eliminate matches with small displacement
 distances = vecnorm(p1-p2);
-threshold = 10;
+threshold = 3;
 p1 = p1(:,distances>threshold);
 p2 = p2(:,distances>threshold);
 
