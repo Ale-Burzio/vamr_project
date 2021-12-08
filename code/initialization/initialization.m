@@ -1,4 +1,4 @@
-function [R_C2_W, T_C2_W] = initialization(img0,img1, K)
+function [R_C2_W, T_C2_W, keys_init, P3D_init] = initialization(img0,img1, K)
 %% MATCHED POINTS ----------------------------------------------------------
 
 % detect harris corners
@@ -57,25 +57,27 @@ P = triangulate(inp1,inp2,stereoParams)';
 
 % bundle adjustement
 % intrinsics = cameraParameters('IntrinsicMatrix',  K');
-% IDs = [1, 1, 1, 2, 2, 2]';
-% Rotations = [eye(3); R_C2_W'];
-% Traslatins = [0; 0;0 ;T_C2_W];
-% cameraPoses = table(IDs, Rotations, Traslatins);
+% % ViewId = [1, 1, 1, 2, 2, 2]';
+% % Orientation = [eye(3); R_C2_W'];
+% % Location = [0; 0;0 ;T_C2_W];
+% %cameraPoses = table(ViewId, Orientation, Location)
+% ViewId = uint32([1, 2]');
+% AbsolutePose = [rigid3d(eye(3), zeros(1,3)); rigid3d(R_C2_W', T_C2_W')];
+% cameraPoses = table(ViewId, AbsolutePose);
 % image1Points = inp1;
 % image2Points = inp2;
 % [~, num_matches] = size(P);
-% ViewIds = [ones(1,num_matches), 2 * ones(1,num_matches)];
-% Points = [image1Points;image2Points];
-% pointTracks = pointTrack(ViewIds,Points);
-% xyzPoints = [P(1:3,:)';P(1:3,:)'];
-% size(ViewIds)
-% size(Points)
-% size(xyzPoints)
-% [xyzRefinedPoints,refinedPoses] = bundleAdjustment(xyzPoints,pointTracks,cameraPoses,intrinsics, ' PointsUndistorted', true);
-% R_C2_W = refinedPoses.Orientation;
-% R_C2_W = R_C2_W(4:6,1:3)';
-% T_C2_W = refinedPoses. Location;
-% T_C2_W = T_C2_W(4:6);
+% ViewIds = [1, 2];
+% for i = 1:num_matches 
+%     Points = [image1Points(i,:);image2Points(i,:)];
+%     pointTracks(i) = pointTrack(ViewIds, Points);
+% end
+% xyzPoints = P(1:3,:)';
+% [xyzRefinedPoints,refinedPoses] = bundleAdjustment(xyzPoints,pointTracks,cameraPoses,intrinsics, 'PointsUndistorted', true);
+% R_C2_W = refinedPoses.AbsolutePose(1).Rotation;
+% R_C2_W = R_C2_W';
+% T_C2_W = refinedPoses.AbsolutePose(1).Translation;
+% T_C2_W = T_C2_W';
 % P = xyzRefinedPoints';
 
 % eliminate negative and further points
@@ -87,6 +89,9 @@ for i = 1:nme
        P(1,i) = 0;
    end
 end
+
+keys_init = inp2';
+P3D_init = P;
 
 %% PLOT INITIALIZATION ----------------------------------------------------
 

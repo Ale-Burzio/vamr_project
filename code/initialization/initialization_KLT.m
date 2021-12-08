@@ -1,4 +1,4 @@
-function [R_C2_W, T_C2_W] = initialization_KLT(img0,img1,img2, K)
+function [R_C2_W, T_C2_W, keys_init, P3D_init] = initialization_KLT(img0,img1,img2, K)
 %% MATCHED POINTS ----------------------------------------------------------
 lambda = 1;
 
@@ -24,8 +24,9 @@ p2 = p2(valid_final,:)';
 % eliminate matches with small displacement
 distances = vecnorm(p1-p2);
 threshold = 3;
-p1 = p1(:,distances>threshold);
-p2 = p2(:,distances>threshold);
+p1 = round(p1(:,distances>threshold));
+p2 = round(p2(:,distances>threshold));
+
 
 %% RELATIVE POSE -----------------------------------------------------------
 
@@ -79,6 +80,8 @@ for i = 1:nme
    end
 end
 
+keys_init = inp2';
+P3D_init = P;
 %% PLOT INITIALIZATION ----------------------------------------------------
 
 figure(1),

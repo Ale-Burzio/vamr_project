@@ -41,12 +41,14 @@ end
 
 %% Bootstrap
 % need to set bootstrap_frames
-bootstrap_frames=[1,3];
+bootstrap_frames=[1,2,3];
 if ds == 0
     img0 = imread([kitti_path '/05/image_0/' ...
         sprintf('%06d.png',bootstrap_frames(1))]);
     img1 = imread([kitti_path '/05/image_0/' ...
         sprintf('%06d.png',bootstrap_frames(2))]);
+    img2 = imread([kitti_path '/05/image_0/' ...
+        sprintf('%06d.png',bootstrap_frames(3))]);
 elseif ds == 1
     img0 = rgb2gray(imread([malaga_path ...
         '/malaga-urban-dataset-extract-07_rectified_800x600_Images/' ...
@@ -59,58 +61,71 @@ elseif ds == 2
         sprintf('/images/img_%05d.png',bootstrap_frames(1))]));
     img1 = rgb2gray(imread([parking_path ...
         sprintf('/images/img_%05d.png',bootstrap_frames(2))]));
+    img2 = rgb2gray(imread([parking_path ...
+        sprintf('/images/img_%05d.png',bootstrap_frames(3))]));
 else
     assert(false);
 end
 
 %% Initialization
 
-[R_C2_W, T_C2_W] = initialization(img0,img1, K);
-T = [R_C2_W, T_C2_W; 0, 0, 0, 1]
+%[R_C2_W, T_C2_W, keys_init, P3D_init] = initialization(img0,img1, K);
+[R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(img0,img1, img2, K);
+
+T = [R_C2_W, T_C2_W./norm(T_C2_W); 0, 0, 0, 1]
 
 % check real solution
 if ds ==0
     poses = load('kitti/poses/00.txt');  
-    R = zeros(3,3,4541);
-    T = zeros(3,1,4541);
+    R_rea = zeros(3,3,4541);
+    T_rea = zeros(3,1,4541);
 elseif ds == 1
     poses = load('kitti/poses/00.txt');
 elseif ds == 2
     poses = load('parking/poses.txt');
-    R = zeros(3,3,599);
-    T = zeros(3,1,599);
+    R_rea = zeros(3,3,599);
+    T_rea = zeros(3,1,599);
 end
 
-R(1,1,:) = poses(:,1);
-R(1,2,:) = poses(:,2);
-R(1,3,:) = poses(:,3);
-R(2,1,:) = poses(:,5);
-R(2,2,:) = poses(:,6);
-R(2,3,:) = poses(:,7);
-R(3,1,:) = poses(:,9);
-R(3,2,:) = poses(:,10);
-R(3,3,:) = poses(:,11);
-T(1,1,:) = poses(:,4);
-T(2,1,:) = poses(:,8);
-T(3,1,:) = poses(:,12);
-%figure(8)
-%plot3(T(1,1,:),T(2,1,:),T(3,1,:))
+R_rea(1,1,:) = poses(:,1);
+R_rea(1,2,:) = poses(:,2);
+R_rea(1,3,:) = poses(:,3);
+R_rea(2,1,:) = poses(:,5);
+R_rea(2,2,:) = poses(:,6);
+R_rea(2,3,:) = poses(:,7);
+R_rea(3,1,:) = poses(:,9);
+R_rea(3,2,:) = poses(:,10);
+R_rea(3,3,:) = poses(:,11);
+T_rea(1,1,:) = poses(:,4);
+T_rea(2,1,:) = poses(:,8);
+T_rea(3,1,:) = poses(:,12);
+
+figure(3)
+norma = vecnorm([poses(3:13,4),poses(3:13,8),poses(3:13,12)], 2, 2);
+plot3(poses(3:13,4)./norma,poses(3:13,8)./norma,poses(3:13,12)./norma);
 
 Rot = R(:,:,1) * R(:,:,3)';
-Trasl = T(:,:,1) - T(:,:,3);
+Trasl = [poses(1,4);poses(1,8);poses(1,12)] - [poses(3,4);poses(3,8);poses(3,12)];
+Trasl = Trasl / norm(Trasl);
 T_real = [Rot, Trasl; 0, 0, 0, 1]
 
-Rot_err = (rotm2eul(Rot)  - rotm2eul(R_C2_W)) * 57.2958
-Trasl_err = (Trasl - T_C2_W)'
-return 
+Rot_err = (rotm2eul(Rot)  - rotm2eul(R_C2_W)) * 57.2958;
+Trasl_err = (Trasl - T_C2_W)';
+% return 
 
 %% Continuous operation
-range = (bootstrap_frames(2)+1):last_frame;    
+range = (bootstrap_frames(2)+1):(bootstrap_frames(2)+2);    
 
 % POINTTRACK INITIALIZZATION
-tracker = vision.PointTracker;
-initialize(tracker,points.Location,img1);
-        
+
+Bidir_err = 0.5;
+tracker = vision.PointTracker('MaxBidirectionalError',Bidir_err);
+initialize(tracker,keys_init',img1);
+S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init);
+prev_image = img1;
+T_wc_i_old =[];
+T_wc_i_old(:,1) = T_C2_W;
+
 for i = range
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
     if ds == 0
@@ -126,13 +141,21 @@ for i = range
         assert(false);
     end
     
-    [S_i,T_wc_i] = CO_processFrame(imgage, prev_image, S_i_prec);
+    [S_i, T_wc_i, tracker_out] = CO_processFrame(image, prev_image, S_i_prev, tracker, K);
+    tracker = tracker_out;
     T_wc_real = [R(:,:,1) * R(:,:,i)', T(:,:,1) - T(:,:,i)];
-    plotTrajectory(T_wc_i, T_wc_real);
+    % plotTrajectory(T_wc_i, T_wc_real);
+    T_wc_i_old = T_wc_i(:,4) + T_wc_i_old
+    twcsticaa(1,i+1) = T_wc_i_old(1);
+    twcsticaa(2,i+1) = T_wc_i_old(2);
+    twcsticaa(3,i+1) = T_wc_i_old(3);
     
     % Makes sure that plots refresh.    
     pause(0.01);
     
     prev_img = image;
-    S_i_prec = S_i
+    S_i_prec = S_i;
 end
+
+figure(9)
+plot3(twcsticaa(1,:),twcsticaa(2,:),twcsticaa(3,:))
