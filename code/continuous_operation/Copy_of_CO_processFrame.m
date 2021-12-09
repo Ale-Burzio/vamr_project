@@ -56,6 +56,16 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K)
     
     %figure(11);
     %showMatchedFeatures(img_i_prev, img_i, P2D_to_track, P2D_tracked)
+    
+    %% RANSAC P3P
+    [R_C_W, t_C_W, inliers_mask, ~, ~] = ransacLocalization(P2D_tracked', P3D_prev_good', K);
+    T_i_wc = [R_C_W, t_C_W];
+    P2D_tracked = P2D_tracked(inliers_mask, :);
+    P2D_to_track = P2D_to_track(inliers_mask,:);
+    P3D_prev_good = P3D_prev_good(inliers_mask, :);
+    % cam_pos_first_obser_new now is setted
+    cam_pos_first_obser_new = cam_pos_first_obser_new .* reshape(T_i_wc, [1, 12]);
+    
     %% PLOT 
     figure(3)
     imshow(img_i);
@@ -69,15 +79,6 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K)
     plot([p1(1,:);p2(1,:)], [p1(2,:);p2(2,:)], 'g-', 'Linewidth', 2);
     pause()
     close(3)
-    
-    %% RANSAC P3P
-    [R_C_W, t_C_W, inliers_mask, ~, ~] = ransacLocalization(P2D_tracked', P3D_prev_good', K);
-    T_i_wc = [R_C_W, t_C_W];
-    P2D_tracked = P2D_tracked(inliers_mask, :);
-    P2D_to_track = P2D_to_track(inliers_mask,:);
-    P3D_prev_good = P3D_prev_good(inliers_mask, :);
-    % cam_pos_first_obser_new now is setted
-    cam_pos_first_obser_new = cam_pos_first_obser_new .* reshape(T_i_wc, [1, 12]);
     
     %% find new P from C
     C_tot = [C_prev_good; new_C];
@@ -98,8 +99,12 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K)
     P3D_new = zeros(size(P2D_new,1),3);
     
     for k = 1:size(P2D_new,1)
+        %%%%%%%%%%%%%%%%%%%%%%%%%% CHECK ERROR ON ROTO-TRASLATION BETWEEN
+        %%%%%%%%%%%%%%%%%%%%%%%%%% P1 and P2 TO TRIANGULATE %%%%%%%%%%%%%
         T_first_wc = reshape(cam_pos_first_obser_P2D_new(k,:),[4,3])';
-        stereoParams = stereoParameters(cameraParams, cameraParams, T_first_wc(:,1:3), T_first_wc(:,4)); 
+        Rot_C_first = R_C_W * T_first_wc(:,1:3)';
+        Trasl_C_first = T_first_wc(:,4) - t_C_W;
+        stereoParams = stereoParameters(cameraParams, cameraParams, Rot_C_first, Trasl_C_first); 
         p1 = P2D_new(k,:);
         p2 = first_obser_P2D_new(k,:);
         P3D_new(k,:) = triangulate(p1,p2,stereoParams);
@@ -120,4 +125,3 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K)
     S_i.cam_pos_first_obser = cam_pos_first_obser_tot'; % T = 12xM
     
 end
-
