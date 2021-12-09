@@ -3,7 +3,7 @@ function [R_C2_W, T_C2_W, keys_init, P3D_init] = initialization_KLT(img0,img1,im
 lambda = 1;
 
 % detect harris corners
-corners1 = detectSURFFeatures(img0);
+corners1 = detectHarrisFeatures(img0, 'MinQuality', 0.0001);
 
 % select strongest
 N = 800;
