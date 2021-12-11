@@ -119,7 +119,7 @@ F_can =[];
 T_can = [];
 
 S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can);
-prev_image = img1;
+prev_image = img2;
 
 % plot initialization
 T_i_wc_history = cell(2,last_frame); % 1 --> R, 2 --> t
@@ -139,6 +139,7 @@ for i = range
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
     if ds == 0
         image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i)]);
+        prev_image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-1)]);
     elseif ds == 1
         image = rgb2gray(imread([malaga_path ...
             '/malaga-urban-dataset-extract-07_rectified_800x600_Images/' ...
@@ -171,7 +172,7 @@ for i = range
     
     key_num = size(S_i.keypoints);
     S_i
-    if i > 15 
+    if i > 30 
         break
     end
     if key_num < 40 
@@ -206,36 +207,32 @@ for k = [1, bootstrap_frames(end):i]
     y(k) = cam_center(2);
     z(k) = cam_center(3);
 end
-
 plot3(x,y,z, '-');
 hold on
 plot3(x,y,z, 's');
-xlim([-0.1,5]);
-ylim([-.5,.5]);
-zlim([-.5,.5]);
 title(['Found trajectory from 1 to ' num2str(i)]);
-
-for j = [1, bootstrap_frames(end):i]
-    figure(5)
-    subplot(1,2,2);
-    plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-    text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-    center_cam2_W =  Trasl_real_all(:,j);
-    plotCoordinateFrame(Rot_real_all(:,:,j),center_cam2_W, 0.8);
-    text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
-    axis equal
-    rotate3d on;
-    grid
-    title('Cameras poses real')
-    
-    subplot(1,2,1);
-    plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-    text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-    center_cam2_W = - T_i_wc_history{1,j}'* T_i_wc_history{2,j};
-    plotCoordinateFrame(T_i_wc_history{1,j}',center_cam2_W, 0.8);
-    text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
-    axis equal
-    rotate3d on;
-    grid
-    title('Cameras poses found')
-end
+% 
+% for j = [1, bootstrap_frames(end):i]
+%     figure(5)
+%     subplot(1,2,2);
+%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
+%     text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
+%     center_cam2_W =  Trasl_real_all(:,j);
+%     plotCoordinateFrame(Rot_real_all(:,:,j),center_cam2_W, 0.8);
+%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
+%     axis equal
+%     rotate3d on;
+%     grid
+%     title('Cameras poses real')
+%     
+%     subplot(1,2,1);
+%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
+%     text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
+%     center_cam2_W = - T_i_wc_history{1,j}'* T_i_wc_history{2,j};
+%     plotCoordinateFrame(T_i_wc_history{1,j}',center_cam2_W, 0.8);
+%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
+%     axis equal
+%     rotate3d on;
+%     grid
+%     title('Cameras poses found')
+% end
