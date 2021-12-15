@@ -52,7 +52,7 @@ function [R_C_W, t_C_W, best_inlier_mask, max_num_inliers_history, num_iteration
 %     t_C_W=M_tilde(:, 4);
 %     
 %% P3P Ransac
-    s=3; %we need 6 points for P3P
+    s=4; %we need 6 points for P3P
     max_dist=10; %threshold is 10 pixels
     num_iteration_history=[0];
     num_matched=length(corresponding_landmarks);

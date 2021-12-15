@@ -3,7 +3,7 @@ close all
 clc
 
 %% Setup
-ds = 0; % 0: KITTI, 1: Malaga, 2: parking
+ds = 2; % 0: KITTI, 1: Malaga, 2: parking
 
 if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
@@ -153,7 +153,7 @@ for i = range
         assert(false);
     end
     
-    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K);
+    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K,i);
     
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
@@ -172,10 +172,10 @@ for i = range
     
     key_num = size(S_i.keypoints);
     S_i
-    if i > 30 
+    if i > bootstrap_frames(end) + 300 
         break
     end
-    if key_num < 40 
+    if key_num < 10 
         break
     end
     
