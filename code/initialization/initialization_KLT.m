@@ -14,9 +14,11 @@ pointTracker = vision.PointTracker('MaxBidirectionalError', 1);
 initialize(pointTracker,p1,img0);
 
 [p_intermediate, valid_intermediate] = pointTracker(img1);
-setPoints(pointTracker,p_intermediate, valid_intermediate);
+%p_intermediate = p_intermediate(valid_intermediate ~= 0,:);
+% validity_pos = min(p_intermediate>=0,[], 2)
+setPoints(pointTracker,abs(p_intermediate), valid_intermediate);
 release(pointTracker);
-initialize(pointTracker,p_intermediate,img1);
+initialize(pointTracker,abs(p_intermediate),img1);
 [p2, valid_final] = pointTracker(img2);
 
 p1 = p1(valid_final,:)';

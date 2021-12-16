@@ -176,26 +176,34 @@ for i = range
     
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
+%     figure(3)
+%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
+%     text(-0.1,-0.1,-0.1,'Cam prev','fontsize',10,'color','k','FontWeight','bold');
+%     center_cam2_W = - R_i_i_prev'* Trasl_i_i_prev;
+%     plotCoordinateFrame(R_i_i_prev',center_cam2_W, 0.8);
+%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,'Cam i','fontsize',10,'color','k','FontWeight','bold');
+%     axis equal
+%     rotate3d on;
+%     grid
+%     title('Cameras relative fram i, i_prev')
+% 	  close(3);
     
     key_num = size(S_i.keypoints);
-    if i > bootstrap_frames(end) + 100 
+    if i > bootstrap_frames(end) + 300 
         break
     end
-    if key_num < 50 
-        if ds == 2
-            prev_prev_image = im2uint8(rgb2gray(imread([parking_path ...
-                sprintf('/images/img_%05d.png',i-2)])));
-        else 
-            prev_prev_image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-2)]);
-        end
+    if key_num < 30 
+        prev_prev_image = im2uint8(rgb2gray(imread([parking_path ...
+            sprintf('/images/img_%05d.png',i-2)])));
         [R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(prev_prev_image,prev_image, image, K);
         S_i.keypoints = keys_init;
-        S_i.landmarks = P3D_init - T_i_wc_history{2,i-1}; % maybe need to rotate T_i_wc_history?
+        S_i.landmarks = P3D_init;
         S_i.cam_pos_first_obser = [];
         S_i.candidates = [];
         S_i.first_obser = [];
         T_i_wc_history{1,i} = R_C2_W * T_i_wc_history{1,i-1};
         T_i_wc_history{2,i} = T_C2_W + T_i_wc_history{2,i-1};
+        T_world = T_world + T_i_wc_history{2,i};
     end
     S_i_prev = S_i;
     

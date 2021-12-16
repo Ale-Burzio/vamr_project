@@ -9,7 +9,7 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     
     %% find new FEATURES
     corners1 = detectFASTFeatures(img_i);
-    N = 300;
+    N = 400;
     features = selectStrongest(corners1,N).Location;
     
     %% track possible C
