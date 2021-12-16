@@ -1,21 +1,22 @@
 function [R_C2_W, T_C2_W, keys_init, P3D_init] = initialization_KLT(img0,img1,img2, K)
 %% MATCHED POINTS ----------------------------------------------------------
-lambda = 1;
 
 % detect harris corners
 corners1 = detectHarrisFeatures(img0, 'MinQuality', 0.0001);
 
 % select strongest
 N = 800;
-p1 = selectStrongest(corners1,N).Location;
+p1 = round(selectStrongest(corners1,N).Location);
 
 % track keypoints 
-pointTracker = vision.PointTracker('MaxBidirectionalError', lambda);
+pointTracker = vision.PointTracker('MaxBidirectionalError', 1);
 
 initialize(pointTracker,p1,img0);
 
 [p_intermediate, valid_intermediate] = pointTracker(img1);
-setPoints(pointTracker,p_intermediate,valid_intermediate);
+setPoints(pointTracker,p_intermediate, valid_intermediate);
+release(pointTracker);
+initialize(pointTracker,p_intermediate,img1);
 [p2, valid_final] = pointTracker(img2);
 
 p1 = p1(valid_final,:)';
@@ -31,7 +32,7 @@ p2 = round(p2(:,distances>threshold));
 %% RELATIVE POSE -----------------------------------------------------------
 
 % estimate fondamental Matrix
-[F, inliers] =estimateFundamentalMatrix(p1(1:2, :)', p2(1:2, :)', ...
+[F, inliers] = estimateFundamentalMatrix(p1(1:2, :)', p2(1:2, :)', ...
     'Method','RANSAC', 'DistanceThreshold', 0.01, 'NumTrials', 8000, 'Confidence', 99.99);
 inp1 = p1(:,inliers);
 inp2 = p2(:,inliers);
@@ -44,8 +45,11 @@ E=K.'*F*K;
 inp1 = inp1(1:2,:)';
 inp2 = inp2(1:2,:)';
 cameraParams = cameraParameters("IntrinsicMatrix",K');
-stereoParams = stereoParameters(cameraParams, cameraParams, R_C2_W', T_C2_W'); 
-P = triangulate(inp1,inp2,stereoParams)';
+
+M1 = cameraMatrix(cameraParams, eye(3), [0,0,0]);
+M2 = cameraMatrix(cameraParams, R_C2_W, T_C2_W);
+
+P = triangulate(inp1,inp2,M1, M2)';
 
 % bundle adjustement
 % intrinsics = cameraParameters('IntrinsicMatrix',  K');
@@ -72,16 +76,18 @@ P = triangulate(inp1,inp2,stereoParams)';
 
 % eliminate negative and further points
 [~, nme] = size(P);
+V = ones(nme,1);
 for i = 1:nme
    if P(3,i) <=0 || P(3,i) > 200
-       P(3,i) = 0;
-       P(2,i) = 0;
-       P(1,i) = 0;
+       V(i) = 0;
    end
 end
-
+P = P(:,V>0);
+inp2 = inp2(V>0,:);
+inp1 = inp1(V>0,:);
 keys_init = inp2';
 P3D_init = P;
+
 %% PLOT INITIALIZATION ----------------------------------------------------
 
 figure(1),

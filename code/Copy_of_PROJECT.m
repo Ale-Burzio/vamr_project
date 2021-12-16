@@ -3,7 +3,7 @@ close all
 clc
 
 %% Setup
-ds = 0; % 0: KITTI, 1: Malaga, 2: parking
+ds = 2; % 0: KITTI, 1: Malaga, 2: parking
 
 if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
@@ -16,6 +16,7 @@ if ds == 0
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
 elseif ds == 1
+    kitti_path = 'datasets\kitti';
     % Path containing the many files of Malaga 7.
     malaga_path = '..\datasets\malaga-urban-dataset-extract-07\malaga-urban-dataset-extract-07_rectified_800x600_Images';
     assert(exist('malaga_path', 'var') ~= 0);
@@ -119,7 +120,7 @@ F_can =[];
 T_can = [];
 
 S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can);
-prev_image = img1;
+prev_image = img2;
 
 % plot initialization
 T_i_wc_history = cell(2,last_frame); % 1 --> R, 2 --> t
@@ -132,17 +133,20 @@ T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
 
 R_i_wc = R_C2_W;
 T_i_wc = T_C2_W;
-
+% bundle adjustment init
+S_history_bundled = cell(1,5);
+M_history_bundled = cell(2,5);
+j = 1;
 % analyse every frame
 for i = range
     
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
     if ds == 0
         image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i)]);
+        prev_image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-1)]);
     elseif ds == 1
-        image = rgb2gray(imread([malaga_path ...
-            '/malaga-urban-dataset-extract-07_rectified_800x600_Images/' ...
-            left_images(i).name]));
+        image = rgb2gray(imread([malaga_path '\'  ...
+        left_images(i).name]));
     elseif ds == 2
         image = im2uint8(rgb2gray(imread([parking_path ...
             sprintf('/images/img_%05d.png',i)])));
@@ -152,7 +156,23 @@ for i = range
         assert(false);
     end
     
-    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K);
+    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K,i);
+    
+    % Bundle adjustment
+    if j ~= 6
+        S_history_bundled{j} = S_i;
+        M_history_bundled{1,j} = R_C2_W;
+        M_history_bundled{2,j} = T_C2_W;
+        j = j + 1;
+    else
+        j = 1;
+        [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
+        T_i_wc(1:3,4) = M_history_bundled{2,5};
+        T_i_wc(1:3,1:3) = M_history_bundled{2,5};
+        S_i.keypoints = P;
+        T_i_wc_history{1,i-5:i} = M_history_bundled{1,:};
+        T_i_wc_history{2,i-5:i} = M_history_bundled{2,:};
+    end
     
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
@@ -167,18 +187,17 @@ for i = range
 %     rotate3d on;
 %     grid
 %     title('Cameras relative fram i, i_prev')
-% 	close(3);
+% 	  close(3);
     
     key_num = size(S_i.keypoints);
-    S_i
-    if i > 15 
+    if i > bootstrap_frames(end) + 300 
         break
     end
-    if key_num < 40 
+    if key_num < 10 
         break
     end
-    
     S_i_prev = S_i;
+    
     
     % Makes sure that plots refresh.    
     pause(0.01);
@@ -206,36 +225,32 @@ for k = [1, bootstrap_frames(end):i]
     y(k) = cam_center(2);
     z(k) = cam_center(3);
 end
-
 plot3(x,y,z, '-');
 hold on
 plot3(x,y,z, 's');
-xlim([-0.1,5]);
-ylim([-.5,.5]);
-zlim([-.5,.5]);
 title(['Found trajectory from 1 to ' num2str(i)]);
-
-for j = [1, bootstrap_frames(end):i]
-    figure(5)
-    subplot(1,2,2);
-    plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-    text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-    center_cam2_W =  Trasl_real_all(:,j);
-    plotCoordinateFrame(Rot_real_all(:,:,j),center_cam2_W, 0.8);
-    text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
-    axis equal
-    rotate3d on;
-    grid
-    title('Cameras poses real')
-    
-    subplot(1,2,1);
-    plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-    text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-    center_cam2_W = - T_i_wc_history{1,j}'* T_i_wc_history{2,j};
-    plotCoordinateFrame(T_i_wc_history{1,j}',center_cam2_W, 0.8);
-    text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
-    axis equal
-    rotate3d on;
-    grid
-    title('Cameras poses found')
-end
+% 
+% for j = [1, bootstrap_frames(end):i]
+%     figure(5)
+%     subplot(1,2,2);
+%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
+%     text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
+%     center_cam2_W =  Trasl_real_all(:,j);
+%     plotCoordinateFrame(Rot_real_all(:,:,j),center_cam2_W, 0.8);
+%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
+%     axis equal
+%     rotate3d on;
+%     grid
+%     title('Cameras poses real')
+%     
+%     subplot(1,2,1);
+%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
+%     text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
+%     center_cam2_W = - T_i_wc_history{1,j}'* T_i_wc_history{2,j};
+%     plotCoordinateFrame(T_i_wc_history{1,j}',center_cam2_W, 0.8);
+%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
+%     axis equal
+%     rotate3d on;
+%     grid
+%     title('Cameras poses found')
+% end
