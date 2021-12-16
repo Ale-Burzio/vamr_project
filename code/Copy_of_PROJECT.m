@@ -16,6 +16,7 @@ if ds == 0
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
 elseif ds == 1
+    kitti_path = 'datasets\kitti';
     % Path containing the many files of Malaga 7.
     malaga_path = '..\datasets\malaga-urban-dataset-extract-07\malaga-urban-dataset-extract-07_rectified_800x600_Images';
     assert(exist('malaga_path', 'var') ~= 0);
@@ -132,7 +133,10 @@ T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
 
 R_i_wc = R_C2_W;
 T_i_wc = T_C2_W;
-
+% bundle adjustment init
+S_history_bundled = cell(1,5);
+M_history_bundled = cell(2,5);
+j = 1;
 % analyse every frame
 for i = range
     
@@ -141,9 +145,8 @@ for i = range
         image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i)]);
         prev_image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-1)]);
     elseif ds == 1
-        image = rgb2gray(imread([malaga_path ...
-            '/malaga-urban-dataset-extract-07_rectified_800x600_Images/' ...
-            left_images(i).name]));
+        image = rgb2gray(imread([malaga_path '\'  ...
+        left_images(i).name]));
     elseif ds == 2
         image = im2uint8(rgb2gray(imread([parking_path ...
             sprintf('/images/img_%05d.png',i)])));
@@ -154,6 +157,22 @@ for i = range
     end
     
     [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K,i);
+    
+    % Bundle adjustment
+    if j ~= 6
+        S_history_bundled{j} = S_i;
+        M_history_bundled{1,j} = R_C2_W;
+        M_history_bundled{2,j} = T_C2_W;
+        j = j + 1;
+    else
+        j = 1;
+        [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
+        T_i_wc(1:3,4) = M_history_bundled{2,5};
+        T_i_wc(1:3,1:3) = M_history_bundled{2,5};
+        S_i.keypoints = P;
+        T_i_wc_history{1,i-5:i} = M_history_bundled{1,:};
+        T_i_wc_history{2,i-5:i} = M_history_bundled{2,:};
+    end
     
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
@@ -168,18 +187,17 @@ for i = range
 %     rotate3d on;
 %     grid
 %     title('Cameras relative fram i, i_prev')
-% 	close(3);
+% 	  close(3);
     
     key_num = size(S_i.keypoints);
-    S_i
     if i > bootstrap_frames(end) + 300 
         break
     end
     if key_num < 10 
         break
     end
-    
     S_i_prev = S_i;
+    
     
     % Makes sure that plots refresh.    
     pause(0.01);

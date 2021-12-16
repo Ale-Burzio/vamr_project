@@ -62,7 +62,7 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     %showMatchedFeatures(img_i_prev, img_i, P2D_to_track, P2D_tracked)
     
     %% RANSAC P3P
-%     [R_C_W, t_C_W, inliers_mask, ~, ~] = ransacLocalizationAndre(P2D_tracked', P3D_prev_good', K);
+%     [R_C_W, t_C_W, inliers_mask, ~, ~] = ransacLocalization(P2D_tracked', P3D_prev_good', K);
 %      R_C_W = eye(3);
 %      t_C_W = [-1;0;0]*i;
 
@@ -71,7 +71,6 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     [R_C_W,t_C_W, inliers_mask] = estimateWorldCameraPose(P2D_tracked,P3D_prev_good,cameraParams, 'Confidence', 99, 'MaxNumTrials', 3000);
     R_C_W = R_C_W';
     t_C_W = - R_C_W'* t_C_W';
-    
     
     T_i_wc = [R_C_W, t_C_W];
     P2D_tracked = P2D_tracked(inliers_mask, :);
