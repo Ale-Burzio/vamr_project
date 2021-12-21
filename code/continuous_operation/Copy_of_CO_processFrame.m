@@ -1,4 +1,4 @@
-function [S_i,T_i_wc, mask_TOT_BA] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, i)
+function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, id)
 
     %% status prev
     P2D_to_track = S_i_prev.keypoints'; % P = Kx2
@@ -6,6 +6,8 @@ function [S_i,T_i_wc, mask_TOT_BA] = Copy_of_CO_processFrame(img_i, img_i_prev, 
     C_prev = S_i_prev.candidates'; % C = Mx2
     first_obser_prev = S_i_prev.first_obser'; % F = Mx2
     cam_pos_first_obser_prev = S_i_prev.cam_pos_first_obser'; % T = Mx12
+    
+    %S_i_prev.Identifier;
     
     %% find new FEATURES
     corners1 = detectFASTFeatures(img_i);
@@ -138,11 +140,11 @@ function [S_i,T_i_wc, mask_TOT_BA] = Copy_of_CO_processFrame(img_i, img_i_prev, 
     first_obser_tot = first_obser_tot(not(validity_angle),:);
     cam_pos_first_obser_tot = cam_pos_first_obser_tot(not(validity_angle),:);
     
-    %% BA MASK
-    
-    validity_P(validity_P ==1) = inliers_mask;
-    mask_TOT_BA = validity_P;
-    
+%     %% BA MASK
+%     
+%     validity_P(validity_P ==1) = inliers_mask;
+%     mask_TOT_BA = validity_P;
+%     
     %% PLOT 
     figure(3),
     subplot(1,2,1),

@@ -118,7 +118,7 @@ range = (bootstrap_frames(end)+1):last_frame;
 Can = [];
 F_can =[];
 T_can = [];
-S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can);
+S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can, 'Identifiers', []);
 prev_image = img2;
 
 % plot initialization
@@ -132,11 +132,17 @@ T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
 
 R_i_wc = R_C2_W;
 T_i_wc = T_C2_W;
-% bundle adjustment init
-S_history_bundled = cell(1,5);
+
+%% bundle adjustment init
 M_history_bundled = cell(2,5);
+Global_states = cell();
 j = 1;
-% analyse every frame
+id = 1;
+pointcloud_global = [];
+
+point = struct('pt', [], 'landmark', []);
+
+%% analyse every frame
 for i = range
     
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
@@ -155,18 +161,17 @@ for i = range
         assert(false);
     end
     
-    [S_i, T_i_wc, mask_TOT_BA_i] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K,i);
+    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K, id);
     
     % Bundle adjustment
     if j ~= 6
-        S_history_bundled{j} = S_i;
+        Global_states{} = ;
         M_history_bundled{1,j} = T_i_wc(:,1:3);
         M_history_bundled{2,j} = T_i_wc(:,4);
-        mask_TOT_BA{j} = mask_TOT_BA_i;
         j = j + 1;
     else
         j = 1;
-        [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, mask_TOT_BA, K);
+        [P, M_history_bundled] = bundleadjustment(Global_states, M_history_bundled, K);
         T_i_wc(1:3,4) = M_history_bundled{2,5};
         T_i_wc(1:3,1:3) = M_history_bundled{2,5};
         S_i.keypoints = P;
