@@ -118,7 +118,6 @@ range = (bootstrap_frames(end)+1):last_frame;
 Can = [];
 F_can =[];
 T_can = [];
-
 S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can);
 prev_image = img2;
 
@@ -181,7 +180,7 @@ for i = range
     if i > bootstrap_frames(end) + 100 
         break
     end
-    if key_num < 50 
+    if key_num < 40 
         if ds == 2
             prev_prev_image = im2uint8(rgb2gray(imread([parking_path ...
                 sprintf('/images/img_%05d.png',i-2)])));
@@ -191,12 +190,13 @@ for i = range
         [R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(prev_prev_image,prev_image, image, K);
         S_i.keypoints = keys_init;
         S_i.landmarks = P3D_init - T_i_wc_history{2,i-1}; % maybe need to rotate T_i_wc_history?
-        S_i.cam_pos_first_obser = [];
-        S_i.candidates = [];
-        S_i.first_obser = [];
+%         S_i.cam_pos_first_obser = [];
+%         S_i.candidates = [];
+%         S_i.first_obser = [];
         T_i_wc_history{1,i} = R_C2_W * T_i_wc_history{1,i-1};
         T_i_wc_history{2,i} = T_C2_W + T_i_wc_history{2,i-1};
     end
+    
     S_i_prev = S_i;
     
     % Makes sure that plots refresh.    

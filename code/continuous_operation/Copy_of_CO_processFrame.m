@@ -89,7 +89,10 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     tresh_angle = 5 * pi / 180;
     validity_angle = abs(angles) > tresh_angle;
     
-    %% ad new P to old P (P2D_tracked) 
+    if size(C_tot,1) ~= length(validity_angle)
+          validity_angle = validity_angle(1:size(C_tot,1));
+    end
+    
     P2D_new = C_tot(validity_angle,:);
     
     %% triangulate new P (find X)
@@ -125,7 +128,8 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
 %     
 %     P2D_new = P2D_new(v>0,:);
 %     P3D_new = P3D_new(v>0,:);
-    
+ 
+    %% ad new P to old P (P2D_tracked) 
     P2D_tot = [P2D_tracked; P2D_new];
     P3D_tot = [P3D_prev_good; P3D_new]; 
     

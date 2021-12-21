@@ -35,13 +35,18 @@ p2 = round(p2(:,distances>threshold));
 
 % estimate fondamental Matrix
 [F, inliers] = estimateFundamentalMatrix(p1(1:2, :)', p2(1:2, :)', ...
-    'Method','RANSAC', 'DistanceThreshold', 0.01, 'NumTrials', 8000, 'Confidence', 99.99);
+    'Method','RANSAC', 'DistanceThreshold', 0.01, 'NumTrials', 3000, 'Confidence', 99.99);
 inp1 = p1(:,inliers);
 inp2 = p2(:,inliers);
 E=K.'*F*K;
 
 %decompose essential matrix
-[R_C2_W,T_C2_W] = fromEtoPos(E, inp1, inp2, K);
+% [R_C2_W,T_C2_W] = fromEtoPos(E, inp1, inp2, K);
+
+intrinsics = cameraParameters('IntrinsicMatrix',  K');
+[R_C2_W,T_C2_W] = relativeCameraPose(E,intrinsics,inp1',inp2');
+R_C2_W = R_C2_W';
+T_C2_W = - R_C2_W * T_C2_W';
 
 % triangulate
 inp1 = inp1(1:2,:)';

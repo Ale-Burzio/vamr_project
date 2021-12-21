@@ -3,7 +3,6 @@ function angle = C_F_angle(C, F, T_new, T_prev, K)
     % F = Mx2
     % T = Mx12
     num_candidates = size(F,1);
-    
     C = K \ [C'; ones(1, num_candidates)]; % 3xM
     F = K \ [F'; ones(1, num_candidates)]; % 3xM
     angle = zeros(size(F,1),1); 
