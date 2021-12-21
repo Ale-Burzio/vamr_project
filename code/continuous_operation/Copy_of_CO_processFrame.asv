@@ -140,9 +140,10 @@ function [S_i,T_i_wc, mask_TOT_BA] = Copy_of_CO_processFrame(img_i, img_i_prev, 
     
     %% BA MASK
     
-    validity_P(validity_P ==1) = inliers_mask;
-    mask_TOT_BA = validity_P;
+    validity_P
+    inliers_mask
     
+    mask_TOT_BA = [ ;zeros(size(P2D_new,1)];
     %% PLOT 
     figure(3),
     subplot(1,2,1),

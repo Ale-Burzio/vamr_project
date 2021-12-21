@@ -133,9 +133,9 @@ T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
 R_i_wc = R_C2_W;
 T_i_wc = T_C2_W;
 % bundle adjustment init
-% S_history_bundled = cell(1,5);
-% M_history_bundled = cell(2,5);
-% j = 1;
+S_history_bundled = cell(1,5);
+M_history_bundled = cell(2,5);
+j = 1;
 % analyse every frame
 for i = range
     
@@ -155,23 +155,24 @@ for i = range
         assert(false);
     end
     
-    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K,i);
+    [S_i, T_i_wc, mask_TOT_BA_i] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K,i);
     
     % Bundle adjustment
-%     if j ~= 6
-%         S_history_bundled{j} = S_i;
-%         M_history_bundled{1,j} = R_C2_W;
-%         M_history_bundled{2,j} = T_C2_W;
-%         j = j + 1;
-%     else
-%         j = 1;
-%         [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
-%         T_i_wc(1:3,4) = M_history_bundled{2,5};
-%         T_i_wc(1:3,1:3) = M_history_bundled{2,5};
-%         S_i.keypoints = P;
-%         T_i_wc_history{1,i-5:i} = M_history_bundled{1,:};
-%         T_i_wc_history{2,i-5:i} = M_history_bundled{2,:};
-%     end
+    if j ~= 6
+        S_history_bundled{j} = S_i;
+        M_history_bundled{1,j} = T_i_wc(:,1:3);
+        M_history_bundled{2,j} = T_i_wc(:,4);
+        mask_TOT_BA{j} = mask_TOT_BA_i;
+        j = j + 1;
+    else
+        j = 1;
+        [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, mask_TOT_BA, K);
+        T_i_wc(1:3,4) = M_history_bundled{2,5};
+        T_i_wc(1:3,1:3) = M_history_bundled{2,5};
+        S_i.keypoints = P;
+        T_i_wc_history{1,i-5:i} = M_history_bundled{1,:};
+        T_i_wc_history{2,i-5:i} = M_history_bundled{2,:};
+    end
     
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
