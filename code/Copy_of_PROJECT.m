@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-%% Setup
+%% Setup ==================================================================
 ds = 2; % 0: KITTI, 1: Malaga, 2: parking
 
 if ds == 0
@@ -39,8 +39,8 @@ else
     assert(false);
 end
 
-%% Bootstrap
-% need to set bootstrap_frames
+%% Bootstrap ==============================================================
+
 bootstrap_frames=[1,2,3];
 if ds == 0
     img0 = imread([kitti_path '/05/image_0/' ...
@@ -67,7 +67,7 @@ else
     assert(false);
 end
 
-%% Initialization
+%% Initialization =========================================================
 
 %[R_C2_W, T_C2_W, keys_init, P3D_init] = initialization(img0,img1, K);
 [R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(img0,img1, img2, K);
@@ -76,7 +76,7 @@ T_W_C2 = [R_C2_W', -R_C2_W' * T_C2_W];
 
 T_initialization = [T_W_C2; 0, 0, 0, 1]
 
-% check real solution
+% check real solution -----------------------------------------------------
 if ds ==0
     poses = load([kitti_path '\poses\00.txt']);  
     R_rea = zeros(3,3,4541);
@@ -107,9 +107,10 @@ T_real = [Rot_real_all(:,:,3), Trasl_real_all(:,3); 0, 0, 0, 1]
 % Trasl_err = (Trasl - T_C2_W)';
 % return 
 
-%% Continuous operation
-range = (bootstrap_frames(end)+1):last_frame;    
+%% Continuous operation ===================================================
 
+% continuous operation initialization -------------------------------------
+range = (bootstrap_frames(end)+1):last_frame;    
 % keys = Pi = 2xK
 % P3D = Xi = 3xK
 % Can = Ci = 2xM
@@ -118,10 +119,10 @@ range = (bootstrap_frames(end)+1):last_frame;
 Can = [];
 F_can =[];
 T_can = [];
-S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can, 'Identifiers', []);
+S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can);
 prev_image = img2;
 
-% plot initialization
+% plot initialization -----------------------------------------------------
 T_i_wc_history = cell(2,last_frame); % 1 --> R, 2 --> t
 for i = 1:bootstrap_frames(end)-1
     T_i_wc_history{1,i} = eye(3);
@@ -133,16 +134,12 @@ T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
 R_i_wc = R_C2_W;
 T_i_wc = T_C2_W;
 
-%% bundle adjustment init
+% bundle adjustment initialization ----------------------------------------
+S_history_bundled = cell(1,5);
 M_history_bundled = cell(2,5);
-Global_states = cell();
 j = 1;
-id = 1;
-pointcloud_global = [];
 
-point = struct('pt', [], 'landmark', []);
-
-%% analyse every frame
+% analyse every frame -----------------------------------------------------
 for i = range
     
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
@@ -161,27 +158,31 @@ for i = range
         assert(false);
     end
     
-    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K, id);
+    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K);
     
-    % Bundle adjustment
+    % Bundle adjustment ---------------------------------------------------
     if j ~= 6
-        Global_states{} = ;
-        M_history_bundled{1,j} = T_i_wc(:,1:3);
-        M_history_bundled{2,j} = T_i_wc(:,4);
+        S_history_bundled{j} = S_i;
+        M_history_bundled{1,j} = R_C2_W;
+        M_history_bundled{2,j} = T_C2_W;
         j = j + 1;
     else
         j = 1;
-        [P, M_history_bundled] = bundleadjustment(Global_states, M_history_bundled, K);
+        [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
         T_i_wc(1:3,4) = M_history_bundled{2,5};
-        T_i_wc(1:3,1:3) = M_history_bundled{2,5};
-        S_i.keypoints = P;
-        T_i_wc_history{1,i-5:i} = M_history_bundled{1,:};
-        T_i_wc_history{2,i-5:i} = M_history_bundled{2,:};
+        T_i_wc(1:3,1:3) = M_history_bundled{1,5};
+        S_i.landmarks = P;
+        for k = 1:5
+            T_i_wc_history{1,k} = M_history_bundled{1,k};
+            T_i_wc_history{2,k} = M_history_bundled{2,k};
+        end
     end
-    
+
+    % add poses for plotting ----------------------------------------------
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
     
+    % check num_keypoints for re-initializing -----------------------------
     key_num = size(S_i.keypoints);
     if i > bootstrap_frames(end) + 100 
         break
@@ -203,13 +204,14 @@ for i = range
         T_i_wc_history{2,i} = T_C2_W + T_i_wc_history{2,i-1};
     end
     
+    % end of continuous operation -----------------------------------------
     S_i_prev = S_i;
-    
     % Makes sure that plots refresh.    
     pause(0.01);
 end
 
-%% plot results
+%% plot results ===========================================================
+
 figure(4)
 subplot(1,2,1);
 plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '-');
