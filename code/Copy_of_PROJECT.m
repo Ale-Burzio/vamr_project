@@ -5,9 +5,12 @@ clc
 %% Setup ==================================================================
 ds = 2; % 0: KITTI, 1: Malaga, 2: parking
 
+addpath("continuous_operation\");
+addpath("initialization\");
+
 if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
-    kitti_path = 'datasets\kitti';
+    kitti_path = '..\datasets\kitti';
     assert(exist('kitti_path', 'var') ~= 0);
     ground_truth = load([kitti_path '/poses/05.txt']);
     ground_truth = ground_truth(:, [end-8 end]);
@@ -16,7 +19,7 @@ if ds == 0
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
 elseif ds == 1
-    kitti_path = 'datasets\kitti';
+    kitti_path = '..\datasets\kitti';
     % Path containing the many files of Malaga 7.
     malaga_path = '..\datasets\malaga-urban-dataset-extract-07\malaga-urban-dataset-extract-07_rectified_800x600_Images';
     assert(exist('malaga_path', 'var') ~= 0);
@@ -27,13 +30,14 @@ elseif ds == 1
         0 621.18428 309.05989
         0 0 1];
 elseif ds == 2
+    kitti_path = '..\datasets\kitti';
     % Path containing images, depths and all...
-    parking_path='datasets\parking';
+    parking_path='..\datasets\parking';
     assert(exist('parking_path', 'var') ~= 0);
     last_frame = 598;
     K = load([parking_path '\K.txt']);
      
-    ground_truth = load([parking_path '/poses.txt']);
+    ground_truth = load([kitti_path '\poses\00.txt']);
     ground_truth = ground_truth(:, [end-8 end]);
 else
     assert(false);
@@ -41,7 +45,7 @@ end
 
 %% Bootstrap ==============================================================
 
-bootstrap_frames=[1,2,3];
+bootstrap_frames=[1,3,5];
 if ds == 0
     img0 = imread([kitti_path '/05/image_0/' ...
         sprintf('%06d.png',bootstrap_frames(1))]);
@@ -161,22 +165,22 @@ for i = range
     [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K);
     
     % Bundle adjustment ---------------------------------------------------
-    if j ~= 6
-        S_history_bundled{j} = S_i;
-        M_history_bundled{1,j} = R_C2_W;
-        M_history_bundled{2,j} = T_C2_W;
-        j = j + 1;
-    else
-        j = 1;
-        [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
-        T_i_wc(1:3,4) = M_history_bundled{2,5};
-        T_i_wc(1:3,1:3) = M_history_bundled{1,5};
-        S_i.landmarks = P;
-        for k = 1:5
-            T_i_wc_history{1,k} = M_history_bundled{1,k};
-            T_i_wc_history{2,k} = M_history_bundled{2,k};
-        end
-    end
+%     if j ~= 6
+%         S_history_bundled{j} = S_i;
+%         M_history_bundled{1,j} = R_C2_W;
+%         M_history_bundled{2,j} = T_C2_W;
+%         j = j + 1;
+%     else
+%         j = 1;
+%         [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
+%         T_i_wc(1:3,4) = M_history_bundled{2,5};
+%         T_i_wc(1:3,1:3) = M_history_bundled{1,5};
+%         S_i.landmarks = P;
+%         for k = 1:5
+%             T_i_wc_history{1,k} = M_history_bundled{1,k};
+%             T_i_wc_history{2,k} = M_history_bundled{2,k};
+%         end
+%     end
 
     % add poses for plotting ----------------------------------------------
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
@@ -184,10 +188,10 @@ for i = range
     
     % check num_keypoints for re-initializing -----------------------------
     key_num = size(S_i.keypoints);
-    if i > bootstrap_frames(end) + 100 
+    if i > bootstrap_frames(end) + 150 
         break
     end
-    if key_num < 40 
+    if key_num < 30 
         if ds == 2
             prev_prev_image = im2uint8(rgb2gray(imread([parking_path ...
                 sprintf('/images/img_%05d.png',i-2)])));
@@ -236,6 +240,16 @@ end
 plot3(x,y,z, '-');
 hold on
 plot3(x,y,z, 's');
+if ds == 0
+    xlim([-3,3])
+    ylim([-3,3])
+    zlim([-1,30])
+end
+if ds == 2
+    xlim([-1,30])
+    ylim([-3,3])
+    zlim([-3,3])
+end
 title(['Found trajectory from 1 to ' num2str(i)]);
 % 
 % for j = [1, bootstrap_frames(end):i]
