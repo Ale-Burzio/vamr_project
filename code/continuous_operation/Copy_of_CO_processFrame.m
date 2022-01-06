@@ -1,4 +1,4 @@
-function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, id)
+function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K)
 
     %% status prev
     P2D_to_track = S_i_prev.keypoints'; % P = Kx2
@@ -10,9 +10,8 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     %S_i_prev.Identifier;
     
     %% find new FEATURES
-    %corners1 = detectFASTFeatures(img_i);
     corners1 = detectHarrisFeatures(img_i, 'MinQuality', 0.00001);
-    N = 400;
+    N = 500;
     features = selectStrongest(corners1,N).Location;
     
     %% track possible C
@@ -31,7 +30,6 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     PC = [P2D_to_track; C_prev];
     distances_features_PC = min(pdist2(features_matched, PC),[],2);
     tresh_dis = 4;
-    %first_obser_new = features_matched(distances_features_PC > tresh_dis, :);
     new_C = features(distances_features_PC > tresh_dis, :);
     first_obser_new = new_C;
     
@@ -65,17 +63,18 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     %showMatchedFeatures(img_i_prev, img_i, P2D_to_track, P2D_tracked)
     
     %% RANSAC P3P
-%      [R_C_W, t_C_W, inliers_mask, ~, ~] = ransacLocalization(P2D_tracked', P3D_prev_good', K);
+      [R_C_W, t_C_W, inliers_mask, ~, ~] = ransacLocalization(P2D_tracked', P3D_prev_good', K);
+%      pause()
 %      R_C_W = eye(3);
 %      t_C_W = [-1;0;0]*i;
 
     % test with matlab function
-    cameraParams = cameraParameters("IntrinsicMatrix",K');
-    [R_C_W,t_C_W, inliers_mask] = estimateWorldCameraPose(P2D_tracked,P3D_prev_good,cameraParams, 'Confidence', 99.99, 'MaxNumTrials', 10000);
-    R_C_W = R_C_W';
-    t_C_W = - R_C_W'* t_C_W';
+%     cameraParams = cameraParameters("IntrinsicMatrix",K');
+%     [R_C_W,t_C_W, inliers_mask] = estimateWorldCameraPose(P2D_tracked,P3D_prev_good,cameraParams, 'Confidence', 99.99, 'MaxNumTrials', 10000);
+%     R_C_W = R_C_W';
+%     t_C_W = -R_C_W * t_C_W';
     
-    T_i_wc = [R_C_W, t_C_W];
+    T_i_wc = [R_C_W, t_C_W]
     P2D_tracked = P2D_tracked(inliers_mask, :);
     P2D_to_track = P2D_to_track(inliers_mask,:);
     P3D_prev_good = P3D_prev_good(inliers_mask, :);
@@ -123,12 +122,14 @@ function [S_i,T_i_wc] = Copy_of_CO_processFrame(img_i, img_i_prev, S_i_prev, K, 
     [nme,~] = size(P3D_new);
     v = ones(nme,1);
     for i = 1:nme
-       if P3D_new(i,3) <=0 || P3D_new(i,3) > 200
+       P3D_C2new = [R_C_W t_C_W]*[P3D_new(i,:) 1]';
+       if P3D_C2new(3) <=0 || P3D_C2new(3) > 100
            v(i)=0;
        end
     end
     
     P2D_new = P2D_new(v>0,:);
+    first_obser_P2D_new = first_obser_P2D_new(v>0,:);
     P3D_new = P3D_new(v>0,:);
  
     %% ad new P to old P (P2D_tracked) 

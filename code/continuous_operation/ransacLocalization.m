@@ -16,7 +16,7 @@ if use_p3p
     else
         num_iterations = 200;
     end
-    pixel_tolerance = 10;
+    pixel_tolerance = 1;
     k = 3;
 else
     num_iterations = 80000;
@@ -31,7 +31,7 @@ end
 % Initialize RANSAC.
 best_inlier_mask = zeros(1, size(matched_query_keypoints, 2));
 % (row, col) to (u, v)
-matched_query_keypoints = flipud(matched_query_keypoints);
+%matched_query_keypoints = flipud(matched_query_keypoints);
 max_num_inliers_history = [];
 num_iteration_history = [];
 max_num_inliers = 0;
@@ -142,6 +142,6 @@ end
 
 if adaptive
     disp(strcat("    Adaptive RANSAC: Needed ", num2str(i-1), " iteration to converge."));
-    disp(strcat("    Adaptive RANSAC: Estimated Ouliers: ", num2str(int32(100*outlier_ratio)), "%"));
+    disp(strcat("    Adaptive RANSAC: Estimated Outliers: ", num2str(int32(100*outlier_ratio)), "%"));
 end
 

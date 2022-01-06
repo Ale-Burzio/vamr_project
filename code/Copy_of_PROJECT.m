@@ -3,7 +3,7 @@ close all
 clc
 
 %% Setup ==================================================================
-ds = 2; % 0: KITTI, 1: Malaga, 2: parking
+ds = 3; % 0: KITTI, 1: Malaga, 2: parking
 
 addpath("continuous_operation\");
 addpath("initialization\");
@@ -19,7 +19,6 @@ if ds == 0
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
 elseif ds == 1
-    kitti_path = '..\datasets\kitti';
     % Path containing the many files of Malaga 7.
     malaga_path = '..\datasets\malaga-urban-dataset-extract-07\malaga-urban-dataset-extract-07_rectified_800x600_Images';
     assert(exist('malaga_path', 'var') ~= 0);
@@ -39,13 +38,25 @@ elseif ds == 2
      
     ground_truth = load([kitti_path '\poses\00.txt']);
     ground_truth = ground_truth(:, [end-8 end]);
+elseif ds == 3
+    parking_path='..\datasets\parking';
+    % Path containing images, depths and all...
+    custom_path ='..\datasets\custom';
+    assert(exist('custom_path', 'var') ~= 0);
+    last_frame = 956;
+    K = [845.52896472, 0, 468.10562767;
+        0, 835.35434918, 298.01291054;
+        0, 0, 1];
 else
     assert(false);
 end
 
 %% Bootstrap ==============================================================
-
-bootstrap_frames=[1,3,5];
+if ds == 3
+    bootstrap_frames=[8,10,12];
+else
+    bootstrap_frames=[1,2,3];
+end
 if ds == 0
     img0 = imread([kitti_path '/05/image_0/' ...
         sprintf('%06d.png',bootstrap_frames(1))]);
@@ -67,6 +78,13 @@ elseif ds == 2
         sprintf('/images/img_%05d.png',bootstrap_frames(2))]));
     img2 = rgb2gray(imread([parking_path ...
         sprintf('/images/img_%05d.png',bootstrap_frames(3))]));
+elseif ds == 3
+    img0 = rgb2gray(imread([custom_path ...
+        sprintf('/dataset/scene1%05d.png',bootstrap_frames(1))]));
+    img1 = rgb2gray(imread([custom_path ...
+        sprintf('/dataset/scene1%05d.png',bootstrap_frames(2))]));
+    img2 = rgb2gray(imread([custom_path ...
+        sprintf('/dataset/scene1%05d.png',bootstrap_frames(3))]));
 else
     assert(false);
 end
@@ -74,9 +92,9 @@ end
 %% Initialization =========================================================
 
 %[R_C2_W, T_C2_W, keys_init, P3D_init] = initialization(img0,img1, K);
-[R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(img0,img1, img2, K);
+[R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(img0,img1,img2, K, ds);
 
-T_W_C2 = [R_C2_W', -R_C2_W' * T_C2_W];
+T_W_C2 = [R_C2_W, T_C2_W];
 
 T_initialization = [T_W_C2; 0, 0, 0, 1]
 
@@ -88,6 +106,10 @@ if ds ==0
 elseif ds == 1
     poses = load([kitti_path '\poses\00.txt']);
 elseif ds == 2
+    poses = load([parking_path '\poses.txt']);
+    R_rea = zeros(3,3,599);
+    T_rea = zeros(3,1,599);
+elseif ds ==3
     poses = load([parking_path '\poses.txt']);
     R_rea = zeros(3,3,599);
     T_rea = zeros(3,1,599);
@@ -106,10 +128,6 @@ Trasl_real_all(2,:) = poses(:,8);
 Trasl_real_all(3,:) = poses(:,12);
 
 T_real = [Rot_real_all(:,:,3), Trasl_real_all(:,3); 0, 0, 0, 1]
-
-% Rot_err = (rotm2eul(Rot)  - rotm2eul(R_C2_W)) * 57.2958;
-% Trasl_err = (Trasl - T_C2_W)';
-% return 
 
 %% Continuous operation ===================================================
 
@@ -138,12 +156,13 @@ T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
 R_i_wc = R_C2_W;
 T_i_wc = T_C2_W;
 
-% bundle adjustment initialization ----------------------------------------
-S_history_bundled = cell(1,5);
-M_history_bundled = cell(2,5);
-j = 1;
+keypoints_min = 150;
 
-% analyse every frame -----------------------------------------------------
+X=[];
+Y=[];
+Z=[];
+
+% analyze every frame -----------------------------------------------------
 for i = range
     
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
@@ -158,60 +177,77 @@ for i = range
             sprintf('/images/img_%05d.png',i)])));
         prev_image = im2uint8(rgb2gray(imread([parking_path ...
             sprintf('/images/img_%05d.png',i-1)])));
+    elseif ds ==3
+        image = im2uint8(rgb2gray(imread([custom_path ...
+            sprintf('/dataset/scene1%05d.png',i)])));
+        prev_image = im2uint8(rgb2gray(imread([custom_path ...
+            sprintf('/dataset/scene1%05d.png',i-1)])));
     else
         assert(false);
     end
     
-    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K);
+    % check num_keypoints for re-initializing -----------------------------
+    key_num = size(S_i_prev.keypoints);
+
+    if key_num < keypoints_min 
+        if ds == 2
+            image0 = im2uint8(rgb2gray(imread([parking_path ...
+                sprintf('/images/img_%05d.png',i-3)])));
+            image1 = im2uint8(rgb2gray(imread([parking_path ...
+                sprintf('/images/img_%05d.png',i-2)])));
+        elseif ds == 0
+            image0 = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-3)]);
+            image1 = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-2)]);
+        elseif ds == 3
+            image0 = rgb2gray(imread([custom_path '/dataset/' sprintf('scene1%05d.png',i-3)]));
+            image1 = rgb2gray(imread([custom_path '/dataset/' sprintf('scene1%05d.png',i-2)]));
+        else
+        end
+        [~, ~, keys_init, P3D_init]= initialization_KLT(image0, image1, prev_image, K, ds);
+        S_i_prev.keypoints = [S_i_prev.keypoints, keys_init];
+        S_i_prev.landmarks = [S_i_prev.landmarks, T_i_wc_history{1,i-3}'*P3D_init - ... 
+                         T_i_wc_history{1,i-3}'*T_i_wc_history{2,i-3}];
+        
+    end
+    max_candidates = 600;
+    if size(S_i_prev.candidates,2) > max_candidates
+        S_i_prev.candidates = S_i_prev.candidates(:,1:max_candidates);
+        S_i_prev.first_obser = S_i_prev.first_obser(:,1:max_candidates);
+        S_i_prev.cam_pos_first_obser = S_i_prev.cam_pos_first_obser(:,1:max_candidates);
+    end
     
-    % Bundle adjustment ---------------------------------------------------
-%     if j ~= 6
-%         S_history_bundled{j} = S_i;
-%         M_history_bundled{1,j} = R_C2_W;
-%         M_history_bundled{2,j} = T_C2_W;
-%         j = j + 1;
-%     else
-%         j = 1;
-%         [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
-%         T_i_wc(1:3,4) = M_history_bundled{2,5};
-%         T_i_wc(1:3,1:3) = M_history_bundled{1,5};
-%         S_i.landmarks = P;
-%         for k = 1:5
-%             T_i_wc_history{1,k} = M_history_bundled{1,k};
-%             T_i_wc_history{2,k} = M_history_bundled{2,k};
-%         end
-%     end
+    [S_i, T_i_wc] = CO_processFrame(image, prev_image, S_i_prev, K, ds);
 
     % add poses for plotting ----------------------------------------------
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
+
+    figure(42)
+    hold on;
     
-    % check num_keypoints for re-initializing -----------------------------
-    key_num = size(S_i.keypoints);
-    if i > bootstrap_frames(end) + 150 
-        break
+    X = S_i.landmarks(1,:);
+    Y = S_i.landmarks(2,:);
+    Z = S_i.landmarks(3,:);
+
+    traj = [-T_i_wc_history{1,i}'* T_i_wc_history{2,i}, ...
+            -T_i_wc_history{1,i-1}'* T_i_wc_history{2,i-1}]';
+    plot3(traj(:,1),traj(:,2), traj(:,3), '-b');
+    plot3(traj(1,1),traj(1,2), traj(1,3), 'ro');
+
+    if exist('h', 'var') == 1
+        set(h,'Visible','off');
     end
-    if key_num < 30 
-        if ds == 2
-            prev_prev_image = im2uint8(rgb2gray(imread([parking_path ...
-                sprintf('/images/img_%05d.png',i-2)])));
-        else 
-            prev_prev_image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-2)]);
-        end
-        [R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(prev_prev_image,prev_image, image, K);
-        S_i.keypoints = keys_init;
-        S_i.landmarks = P3D_init - T_i_wc_history{2,i-1}; % maybe need to rotate T_i_wc_history?
-%         S_i.cam_pos_first_obser = [];
-%         S_i.candidates = [];
-%         S_i.first_obser = [];
-        T_i_wc_history{1,i} = R_C2_W * T_i_wc_history{1,i-1};
-        T_i_wc_history{2,i} = T_C2_W + T_i_wc_history{2,i-1};
-    end
-    
+    h = plot3(X,Y,Z, 'ko');
+
+    xlim([traj(1,1)-30,traj(1,1)+10])
+    ylim([traj(1,2)-10,traj(1,2)+10])
+    zlim([traj(1,3)-30,traj(1,3)+50])
+
     % end of continuous operation -----------------------------------------
     S_i_prev = S_i;
     % Makes sure that plots refresh.    
     pause(0.01);
+    
 end
 
 %% plot results ===========================================================
