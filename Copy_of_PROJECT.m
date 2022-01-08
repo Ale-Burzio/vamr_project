@@ -14,7 +14,7 @@ if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
     kitti_path = '..\datasets\kitti';
     assert(exist('kitti_path', 'var') ~= 0);
-    last_frame = 2300;
+    last_frame = 50;
     K = [7.188560000000e+02 0 6.071928000000e+02
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
@@ -24,7 +24,7 @@ elseif ds == 1
     assert(exist('malaga_path', 'var') ~= 0);
     images = dir(malaga_path);
     left_images = images(3:2:end);
-    last_frame = length(left_images);
+    last_frame = 50;
     K = [621.18428 0 404.0076
         0 621.18428 309.05989
         0 0 1];
@@ -32,7 +32,7 @@ elseif ds == 2
     % Path containing images, depths and all...
     parking_path='..\datasets\parking';
     assert(exist('parking_path', 'var') ~= 0);
-    last_frame = 598;
+    last_frame = 50;
     K = load([parking_path '\K.txt']);
 else
     assert(false);
@@ -248,15 +248,17 @@ end
 %% plot results ===========================================================
 
 if cfgp.plot_final
-    figure(4)
-    hold on;
+    
     if ds==0 || ds==2
+        figure(4)
         plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '-k');
         plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), '-k');
         plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '.');
         plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), '.');
+        axis equal
     end
     
+    figure(5)
     x = zeros(i,1);
     y = x;
     z = x;
