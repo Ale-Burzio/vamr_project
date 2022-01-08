@@ -14,7 +14,7 @@ if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
     kitti_path = '..\datasets\kitti';
     assert(exist('kitti_path', 'var') ~= 0);
-    last_frame = 50;
+    last_frame = 2300;
     K = [7.188560000000e+02 0 6.071928000000e+02
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
@@ -24,7 +24,7 @@ elseif ds == 1
     assert(exist('malaga_path', 'var') ~= 0);
     images = dir(malaga_path);
     left_images = images(3:2:end);
-    last_frame = 50;
+    last_frame = length(left_images);
     K = [621.18428 0 404.0076
         0 621.18428 309.05989
         0 0 1];
@@ -32,7 +32,7 @@ elseif ds == 2
     % Path containing images, depths and all...
     parking_path='..\datasets\parking';
     assert(exist('parking_path', 'var') ~= 0);
-    last_frame = 50;
+    last_frame = 598;
     K = load([parking_path '\K.txt']);
 else
     assert(false);
