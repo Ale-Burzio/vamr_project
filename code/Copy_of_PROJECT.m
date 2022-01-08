@@ -3,23 +3,22 @@ close all
 clc
 
 %% Setup ==================================================================
-ds = 2; % 0: KITTI, 1: Malaga, 2: parking
-
 addpath("continuous_operation\");
 addpath("initialization\");
+
+cfgp = getparameters();
+ds = cfgp.ds; 
+
 
 if ds == 0
     % need to set kitti_path to folder containing "05" and "poses"
     kitti_path = '..\datasets\kitti';
     assert(exist('kitti_path', 'var') ~= 0);
-    ground_truth = load([kitti_path '/poses/05.txt']);
-    ground_truth = ground_truth(:, [end-8 end]);
-    last_frame = 4540;
+    last_frame = 2300;
     K = [7.188560000000e+02 0 6.071928000000e+02
         0 7.188560000000e+02 1.852157000000e+02
         0 0 1];
 elseif ds == 1
-    kitti_path = '..\datasets\kitti';
     % Path containing the many files of Malaga 7.
     malaga_path = '..\datasets\malaga-urban-dataset-extract-07\malaga-urban-dataset-extract-07_rectified_800x600_Images';
     assert(exist('malaga_path', 'var') ~= 0);
@@ -30,22 +29,19 @@ elseif ds == 1
         0 621.18428 309.05989
         0 0 1];
 elseif ds == 2
-    kitti_path = '..\datasets\kitti';
     % Path containing images, depths and all...
     parking_path='..\datasets\parking';
     assert(exist('parking_path', 'var') ~= 0);
     last_frame = 598;
     K = load([parking_path '\K.txt']);
-     
-    ground_truth = load([kitti_path '\poses\00.txt']);
-    ground_truth = ground_truth(:, [end-8 end]);
 else
     assert(false);
 end
 
 %% Bootstrap ==============================================================
 
-bootstrap_frames=[1,3,5];
+bootstrap_frames=cfgp.bootstrap_frames;
+
 if ds == 0
     img0 = imread([kitti_path '/05/image_0/' ...
         sprintf('%06d.png',bootstrap_frames(1))]);
@@ -72,59 +68,52 @@ else
 end
 
 %% Initialization =========================================================
-
-%[R_C2_W, T_C2_W, keys_init, P3D_init] = initialization(img0,img1, K);
-[R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(img0,img1, img2, K);
-
-T_W_C2 = [R_C2_W', -R_C2_W' * T_C2_W];
-
-T_initialization = [T_W_C2; 0, 0, 0, 1]
+cameraParams = cameraParameters("IntrinsicMatrix",K');
+[R_C2_W, T_C2_W, keys_init, P3D_init] = initialization_KLT(img0,img1,img2, cameraParams, cfgp);
 
 % check real solution -----------------------------------------------------
 if ds ==0
     poses = load([kitti_path '\poses\00.txt']);  
     R_rea = zeros(3,3,4541);
     T_rea = zeros(3,1,4541);
-elseif ds == 1
-    poses = load([kitti_path '\poses\00.txt']);
 elseif ds == 2
     poses = load([parking_path '\poses.txt']);
     R_rea = zeros(3,3,599);
     T_rea = zeros(3,1,599);
 end
-Rot_real_all(1,1,:) = poses(:,1);
-Rot_real_all(1,2,:) = poses(:,2);
-Rot_real_all(1,3,:) = poses(:,3);
-Rot_real_all(2,1,:) = poses(:,5);
-Rot_real_all(2,2,:) = poses(:,6);
-Rot_real_all(2,3,:) = poses(:,7);
-Rot_real_all(3,1,:) = poses(:,9);
-Rot_real_all(3,2,:) = poses(:,10);
-Rot_real_all(3,3,:) = poses(:,11);
-Trasl_real_all(1,:) = poses(:,4);
-Trasl_real_all(2,:) = poses(:,8);
-Trasl_real_all(3,:) = poses(:,12);
+if ds==0 || ds==2
+    Rot_real_all(1,1,:) = poses(:,1);
+    Rot_real_all(1,2,:) = poses(:,2);
+    Rot_real_all(1,3,:) = poses(:,3);
+    Rot_real_all(2,1,:) = poses(:,5);
+    Rot_real_all(2,2,:) = poses(:,6);
+    Rot_real_all(2,3,:) = poses(:,7);
+    Rot_real_all(3,1,:) = poses(:,9);
+    Rot_real_all(3,2,:) = poses(:,10);
+    Rot_real_all(3,3,:) = poses(:,11);
+    Trasl_real_all(1,:) = poses(:,4);
+    Trasl_real_all(2,:) = poses(:,8);
+    Trasl_real_all(3,:) = poses(:,12);
 
-T_real = [Rot_real_all(:,:,3), Trasl_real_all(:,3); 0, 0, 0, 1]
-
-% Rot_err = (rotm2eul(Rot)  - rotm2eul(R_C2_W)) * 57.2958;
-% Trasl_err = (Trasl - T_C2_W)';
-% return 
+    T_real = [Rot_real_all(:,:,3), Trasl_real_all(:,3); 0, 0, 0, 1];
+end
 
 %% Continuous operation ===================================================
 
 % continuous operation initialization -------------------------------------
-range = (bootstrap_frames(end)+1):last_frame;    
-% keys = Pi = 2xK
-% P3D = Xi = 3xK
-% Can = Ci = 2xM
-% F_can = Fi = 2xM
-% T_can = Ti = 12xM
+
+pc = 0; %for plotting number of candidates and keypoints
+pk = 0;
+
+range = (bootstrap_frames(end)+1):last_frame;
+keypoints_min = cfgp.keypoints_min; 
 Can = [];
 F_can =[];
 T_can = [];
-S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, 'first_obser', F_can, 'cam_pos_first_obser', T_can);
+C_count = [];
 prev_image = img2;
+S_i_prev = struct('keypoints', keys_init, 'landmarks', P3D_init, 'candidates', Can, ...
+                  'first_obser', F_can, 'cam_pos_first_obser', T_can, 'C_count', C_count);
 
 % plot initialization -----------------------------------------------------
 T_i_wc_history = cell(2,last_frame); % 1 --> R, 2 --> t
@@ -132,18 +121,14 @@ for i = 1:bootstrap_frames(end)-1
     T_i_wc_history{1,i} = eye(3);
     T_i_wc_history{2,i} = [0 0 0]';
 end
-T_i_wc_history{1,bootstrap_frames(end)} = R_C2_W;
-T_i_wc_history{2,bootstrap_frames(end)} = T_C2_W;
+T_i_wc_history{1,bootstrap_frames(end)} = R_C2_W';
+T_i_wc_history{2,bootstrap_frames(end)} = -R_C2_W'*T_C2_W;
 
-R_i_wc = R_C2_W;
-T_i_wc = T_C2_W;
+X=[];
+Y=[];
+Z=[];
 
-% bundle adjustment initialization ----------------------------------------
-S_history_bundled = cell(1,5);
-M_history_bundled = cell(2,5);
-j = 1;
-
-% analyse every frame -----------------------------------------------------
+% analyze every frame -----------------------------------------------------
 for i = range
     
     fprintf('\n\nProcessing frame %d\n=====================\n', i);
@@ -153,6 +138,8 @@ for i = range
     elseif ds == 1
         image = rgb2gray(imread([malaga_path '\'  ...
         left_images(i).name]));
+        prev_image = rgb2gray(imread([malaga_path '\'  ...
+        left_images(i-1).name]));
     elseif ds == 2
         image = im2uint8(rgb2gray(imread([parking_path ...
             sprintf('/images/img_%05d.png',i)])));
@@ -162,117 +149,128 @@ for i = range
         assert(false);
     end
     
-    [S_i, T_i_wc] = Copy_of_CO_processFrame(image, prev_image, S_i_prev, K);
+    % check num_keypoints for re-initializing -----------------------------
+    key_num = size(S_i_prev.keypoints,2);
+
+    if key_num < keypoints_min
+        
+        if ds==0
+            image0 = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-3)]);
+            image1 = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-2)]);
+        elseif ds == 1
+            image0 = rgb2gray(imread([malaga_path '\'  ...
+            left_images(i-3).name]));
+            image1 = rgb2gray(imread([malaga_path '\' ...
+            left_images(i-2).name]));
+        elseif ds==2
+            image0 = im2uint8(rgb2gray(imread([parking_path ...
+                sprintf('/images/img_%05d.png',i-3)])));
+            image1 = im2uint8(rgb2gray(imread([parking_path ...
+                sprintf('/images/img_%05d.png',i-2)])));
+        end
+        [R, T, keys_init, P3D_init]= initialization_KLT(image0, image1, prev_image, cameraParams, cfgp);
+        S_i_prev.keypoints = [S_i_prev.keypoints, keys_init];
+        S_i_prev.landmarks = [S_i_prev.landmarks, T_i_wc_history{1,i-3}*P3D_init - ... 
+                              T_i_wc_history{1,i-3}'*T_i_wc_history{2,i-3}];
+        
+        AbsolutePose = rigid3d(T_i_wc_history{1,i-1}',(-T_i_wc_history{1,i-1}'*T_i_wc_history{2,i-1})');
+        ViewId = uint32(1);
+        tab = table(ViewId,AbsolutePose);
+        u = S_i_prev.keypoints(1,:);
+        v = S_i_prev.keypoints(2,:);
+        pt_array = [pointTrack(1,[u(1),v(1)])];
+        parfor k = 2:size(S_i_prev.keypoints,2)
+            pt_array(k) = pointTrack(1,[u(k),v(k)]);
+        end
+        S_i_prev.landmarks = bundleAdjustmentStructure(S_i_prev.landmarks',pt_array,tab,cameraParams)';
+    end
     
-    % Bundle adjustment ---------------------------------------------------
-%     if j ~= 6
-%         S_history_bundled{j} = S_i;
-%         M_history_bundled{1,j} = R_C2_W;
-%         M_history_bundled{2,j} = T_C2_W;
-%         j = j + 1;
-%     else
-%         j = 1;
-%         [P, M_history_bundled] = bundleadjustment(S_history_bundled, M_history_bundled, K);
-%         T_i_wc(1:3,4) = M_history_bundled{2,5};
-%         T_i_wc(1:3,1:3) = M_history_bundled{1,5};
-%         S_i.landmarks = P;
-%         for k = 1:5
-%             T_i_wc_history{1,k} = M_history_bundled{1,k};
-%             T_i_wc_history{2,k} = M_history_bundled{2,k};
-%         end
-%     end
+    [S_i, T_i_wc] = CO_processFrame(image, prev_image, S_i_prev, cameraParams, cfgp, T_i_wc_history{1,i-1}, T_i_wc_history{2,i-1});
+
+    max_candidates = cfgp.max_candidates;
+    if size(S_i.candidates,2) >= max_candidates
+        S_i.candidates = S_i.candidates(:,1:max_candidates);
+        S_i.first_obser = S_i.first_obser(:,1:max_candidates);
+        S_i.cam_pos_first_obser = S_i.cam_pos_first_obser(:,1:max_candidates);
+        S_i.C_count = S_i.C_count(1:max_candidates);
+    end
 
     % add poses for plotting ----------------------------------------------
     T_i_wc_history{1,i} = T_i_wc(1:3,1:3);
     T_i_wc_history{2,i} = T_i_wc(1:3,4);
     
-    % check num_keypoints for re-initializing -----------------------------
-    key_num = size(S_i.keypoints);
-    if i > bootstrap_frames(end) + 150 
-        break
-    end
-    if key_num < 30 
-        if ds == 2
-            prev_prev_image = im2uint8(rgb2gray(imread([parking_path ...
-                sprintf('/images/img_%05d.png',i-2)])));
-        else 
-            prev_prev_image = imread([kitti_path '/05/image_0/' sprintf('%06d.png',i-2)]);
+    figure(42)
+    if cfgp.plot_local
+        subplot(2,2,1);
+        view(0,0)
+        hold on;
+        axis equal;
+        
+        X = S_i.landmarks(1,:);
+        Y = S_i.landmarks(2,:);
+        Z = S_i.landmarks(3,:);
+    
+        traj = [-T_i_wc_history{1,i}' * T_i_wc_history{2,i}, ...
+                -T_i_wc_history{1,i-1}' * T_i_wc_history{2,i-1}]';
+        plot3(traj(:,1),traj(:,2), traj(:,3), '-b');
+        plot3(traj(1,1),traj(1,2), traj(1,3), 'ro');
+    
+        if exist('h', 'var') == 1
+            set(h,'Visible','off');
         end
-        [R_C2_W, T_C2_W, keys_init, P3D_init]= initialization_KLT(prev_prev_image,prev_image, image, K);
-        S_i.keypoints = keys_init;
-        S_i.landmarks = P3D_init - T_i_wc_history{2,i-1}; % maybe need to rotate T_i_wc_history?
-%         S_i.cam_pos_first_obser = [];
-%         S_i.candidates = [];
-%         S_i.first_obser = [];
-        T_i_wc_history{1,i} = R_C2_W * T_i_wc_history{1,i-1};
-        T_i_wc_history{2,i} = T_C2_W + T_i_wc_history{2,i-1};
+        h = plot3(X,Y,Z, 'ko');
+    
+        xlim([traj(1,1)-10,traj(1,1)+10])
+        ylim([traj(1,2)-10,traj(1,2)+10])
+        zlim([traj(1,3)-10,traj(1,3)+10])
     end
     
+    if cfgp.plot_kc
+        subplot(2,2,4)
+        hold on;
+        candidates = [pc, size(S_i.C_count,2)];
+        keypoints = [pk, size(S_i_prev.keypoints,2)];
+        plot([i-1,i],candidates, 'r-');
+        plot([i-1,i],keypoints,'g-');
+        xlim([i-12,i+2])
+        ylim([0,600])
+        pc = size(S_i.C_count,2);
+        pk = size(S_i_prev.keypoints,2);
+    end
+
     % end of continuous operation -----------------------------------------
     S_i_prev = S_i;
     % Makes sure that plots refresh.    
-    pause(0.01);
+    pause(0.1);
+    
 end
 
 %% plot results ===========================================================
 
-figure(4)
-subplot(1,2,1);
-plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '-');
-hold on
-plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), '-');
-hold on
-plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), 's');
-hold on
-plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), 's');
-title(['Real trajectory from 1 to ' num2str(i)]);
-
-subplot(1,2,2);
-x = zeros(i,1);
-y = x;
-z = x;
-for k = [1, bootstrap_frames(end):i]
-    cam_center = - T_i_wc_history{1,k}'* T_i_wc_history{2,k};
-    x(k) = cam_center(1);
-    y(k) = cam_center(2);
-    z(k) = cam_center(3);
+if cfgp.plot_final
+    
+    if ds==0 || ds==2
+        figure(4)
+        plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '-k');
+        plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), '-k');
+        plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '.');
+        plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), '.');
+        axis equal
+    end
+    
+    figure(5)
+    x = zeros(i,1);
+    y = x;
+    z = x;
+    for k = [1, bootstrap_frames(end):i]
+        cam_center = - T_i_wc_history{1,k}'* T_i_wc_history{2,k};
+        x(k) = cam_center(1);
+        y(k) = cam_center(2);
+        z(k) = cam_center(3);
+    end
+    plot3(x,y,z, 'r-');
+    hold on
+    plot3(x,y,z, 's');
+    view(0,0)
+    axis equal
 end
-plot3(x,y,z, '-');
-hold on
-plot3(x,y,z, 's');
-if ds == 0
-    xlim([-3,3])
-    ylim([-3,3])
-    zlim([-1,30])
-end
-if ds == 2
-    xlim([-1,30])
-    ylim([-3,3])
-    zlim([-3,3])
-end
-title(['Found trajectory from 1 to ' num2str(i)]);
-% 
-% for j = [1, bootstrap_frames(end):i]
-%     figure(5)
-%     subplot(1,2,2);
-%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-%     text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-%     center_cam2_W =  Trasl_real_all(:,j);
-%     plotCoordinateFrame(Rot_real_all(:,:,j),center_cam2_W, 0.8);
-%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
-%     axis equal
-%     rotate3d on;
-%     grid
-%     title('Cameras poses real')
-%     
-%     subplot(1,2,1);
-%     plotCoordinateFrame(eye(3),zeros(3,1), 0.8);
-%     text(-0.1,-0.1,-0.1,'Cam 1','fontsize',10,'color','k','FontWeight','bold');
-%     center_cam2_W = - T_i_wc_history{1,j}'* T_i_wc_history{2,j};
-%     plotCoordinateFrame(T_i_wc_history{1,j}',center_cam2_W, 0.8);
-%     text(center_cam2_W(1)-0.1, center_cam2_W(2)-0.1, center_cam2_W(3)-0.1,['Cam ' num2str(j)],'fontsize',10,'color','k','FontWeight','bold');
-%     axis equal
-%     rotate3d on;
-%     grid
-%     title('Cameras poses found')
-% end

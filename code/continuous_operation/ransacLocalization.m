@@ -16,7 +16,7 @@ if use_p3p
     else
         num_iterations = 200;
     end
-    pixel_tolerance = 10;
+    pixel_tolerance = 1;
     k = 3;
 else
     num_iterations = 80000;
@@ -30,13 +30,9 @@ end
 
 % Initialize RANSAC.
 best_inlier_mask = zeros(1, size(matched_query_keypoints, 2));
-% (row, col) to (u, v)
-matched_query_keypoints = flipud(matched_query_keypoints);
 max_num_inliers_history = [];
 num_iteration_history = [];
 max_num_inliers = 0;
-% Replace the following with the path to your camera projection code:
-%addpath('../../01_camera_projection/code');
 
 % RANSAC
 i = 1;
@@ -99,7 +95,7 @@ while num_iterations > i
     end
     
     if tweaked_for_more
-        min_inlier_count = 10;
+        min_inlier_count = 12;
     else
         min_inlier_count = 6;
     end
@@ -115,8 +111,8 @@ while num_iterations > i
         outlier_ratio = 1 - max_num_inliers / numel(is_inlier);
         % formula to compute number of iterations from estimated outlier
         % ratio
-        confidence = 0.999;
-        upper_bound_on_outlier_ratio = 0.90;
+        confidence = 0.9999;
+        upper_bound_on_outlier_ratio = 0.80;
         outlier_ratio = min(upper_bound_on_outlier_ratio, outlier_ratio);
         num_iterations = log(1-confidence)/log(1-(1-outlier_ratio)^k);
         % cap the number of iterations at 15000
@@ -142,6 +138,6 @@ end
 
 if adaptive
     disp(strcat("    Adaptive RANSAC: Needed ", num2str(i-1), " iteration to converge."));
-    disp(strcat("    Adaptive RANSAC: Estimated Ouliers: ", num2str(int32(100*outlier_ratio)), "%"));
+    disp(strcat("    Adaptive RANSAC: Estimated Outliers: ", num2str(int32(100*outlier_ratio)), "%"));
 end
 
