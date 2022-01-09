@@ -57,7 +57,7 @@ project_folder
 * Statistics and Machine Learning Toolbox
 
 ## Screencasts
-[Kitti dataset](https://youtu.be/r3xy4GOazSE)
+[Kitti dataset](https://www.youtube.com/watch?v=lVYn6uOW2Vs)
 
 [Malaga dataset](https://youtu.be/CiI_OeyePWU)
 
