@@ -59,7 +59,7 @@ project_folder
 ## Screencasts
 [Kitti dataset](https://youtu.be/r3xy4GOazSE)
 
-[Malaga dataset](https://youtu.be/r3xy4GOazSE)
+[Malaga dataset](https://youtu.be/CiI_OeyePWU)
 
 [Parking dataset](https://www.youtube.com/watch?v=EgOp20M0F6E)
 
