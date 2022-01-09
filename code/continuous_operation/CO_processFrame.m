@@ -175,6 +175,7 @@ function [S_i,T_i_wc] = CO_processFrame(img_i, img_i_prev, S_i_prev, cameraParam
             plot(first_obser_P_new(:,1), first_obser_P_new(:,2), 'bs');
             plot([P_new(:,1)'; first_obser_P_new(:,1)'], [P_new(:,2)'; first_obser_P_new(:,2)'], 'y-', 'Linewidth', 1);
         end
+        title("keypoints (green), candidates (red), new candidates (magenta)");
         hold off;
     end
     if cfgp.plot_cameras

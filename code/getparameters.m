@@ -2,7 +2,7 @@ function [configparams] = getparameters()
 %   function to get data structure with all paramters 
 %   create custom configuration for all parameters
 
-ds = 2; % 0: KITTI, 1: Malaga, 2: parking
+ds = 2; % 0: KITTI, 1: Malaga, 2: parking, 3: countrylife, 4: vineyards
 bootstrap_frames = [1,2,3]; %frames for bootstrap
 keypoints_min = 100; % minimum number of keypoints, when below reinitialize
 max_candidates = 500; % maximum number of candidates to track
@@ -30,9 +30,9 @@ min_consecutive_frames = 8;
 % debug and plots
 plot_initialization = false; % plot initialization pointcloud
 plot_local = true; % plot local trajectory +  current pointcloud
-plot_kc = false; % plot number keypoints and candidates
-plot_cameras = false; % plot previous and current frame cameras
-plot_correspond = false; % plot image with keypoints (green), candidates (red) and new candidates (magenta)
+plot_kc = true; % plot number keypoints and candidates
+plot_cameras = true; % plot previous and current frame cameras
+plot_correspond = true; % plot image with keypoints (green), candidates (red) and new candidates (magenta)
 plot_new = false; % plot new triangulations
 plot_final = true; % plot complete path
 

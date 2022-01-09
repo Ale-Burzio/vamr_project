@@ -34,6 +34,22 @@ elseif ds == 2
     assert(exist('parking_path', 'var') ~= 0);
     last_frame = 598;
     K = load([parking_path '\K.txt']);
+elseif ds == 3
+    % Path containing images, depths and all...
+    custom_path ='..\datasets\countrylife';
+    assert(exist('custom_path', 'var') ~= 0);
+    last_frame = 302;
+    K = [845.52896472, 0, 468.10562767;
+        0, 835.35434918, 298.01291054;
+        0, 0, 1];
+elseif ds == 4
+    % Path containing images, depths and all...
+    custom_path ='..\datasets\vineyards';
+    assert(exist('custom_path', 'var') ~= 0);
+    last_frame = 525;
+    K = [845.52896472, 0, 468.10562767;
+        0, 835.35434918, 298.01291054;
+        0, 0, 1];
 else
     assert(false);
 end
@@ -63,6 +79,14 @@ elseif ds == 2
         sprintf('/images/img_%05d.png',bootstrap_frames(2))]));
     img2 = rgb2gray(imread([parking_path ...
         sprintf('/images/img_%05d.png',bootstrap_frames(3))]));
+elseif ds == 3 || ds == 4
+    img0 = rgb2gray(imread([custom_path ...
+        sprintf('/dataset/scene1%05d.png',bootstrap_frames(1))]));
+    img1 = rgb2gray(imread([custom_path ...
+        sprintf('/dataset/scene1%05d.png',bootstrap_frames(2))]));
+    img2 = rgb2gray(imread([custom_path ...
+        sprintf('/dataset/scene1%05d.png',bootstrap_frames(3))]));
+    
 else
     assert(false);
 end
@@ -73,7 +97,7 @@ cameraParams = cameraParameters("IntrinsicMatrix",K');
 
 % check real solution -----------------------------------------------------
 if ds ==0
-    poses = load([kitti_path '\poses\00.txt']);  
+    poses = load([kitti_path '\poses\05.txt']);  
     R_rea = zeros(3,3,4541);
     T_rea = zeros(3,1,4541);
 elseif ds == 2
@@ -145,6 +169,11 @@ for i = range
             sprintf('/images/img_%05d.png',i)])));
         prev_image = im2uint8(rgb2gray(imread([parking_path ...
             sprintf('/images/img_%05d.png',i-1)])));
+    elseif ds ==3 || ds ==4
+        image = im2uint8(rgb2gray(imread([custom_path ...
+            sprintf('/dataset/scene1%05d.png',i)])));
+        prev_image = im2uint8(rgb2gray(imread([custom_path ...
+            sprintf('/dataset/scene1%05d.png',i-1)])));
     else
         assert(false);
     end
@@ -167,6 +196,9 @@ for i = range
                 sprintf('/images/img_%05d.png',i-3)])));
             image1 = im2uint8(rgb2gray(imread([parking_path ...
                 sprintf('/images/img_%05d.png',i-2)])));
+        elseif ds == 3 || ds == 4
+            image0 = rgb2gray(imread([custom_path '/dataset/' sprintf('scene1%05d.png',i-3)]));
+            image1 = rgb2gray(imread([custom_path '/dataset/' sprintf('scene1%05d.png',i-2)]));
         end
         [R, T, keys_init, P3D_init]= initialization_KLT(image0, image1, prev_image, cameraParams, cfgp);
         S_i_prev.keypoints = [S_i_prev.keypoints, keys_init];
@@ -223,6 +255,7 @@ for i = range
         xlim([traj(1,1)-10,traj(1,1)+10])
         ylim([traj(1,2)-10,traj(1,2)+10])
         zlim([traj(1,3)-10,traj(1,3)+10])
+        title("Trajectory and 3D landmarks");
     end
     
     if cfgp.plot_kc
@@ -236,6 +269,7 @@ for i = range
         ylim([0,600])
         pc = size(S_i.C_count,2);
         pk = size(S_i_prev.keypoints,2);
+        title("keypoints (green), candidates (red)");
     end
 
     % end of continuous operation -----------------------------------------
@@ -256,6 +290,7 @@ if cfgp.plot_final
         plot3(Trasl_real_all(1,1), Trasl_real_all(2,1), Trasl_real_all(3,1), '.');
         plot3(Trasl_real_all(1,3:i), Trasl_real_all(2,3:i), Trasl_real_all(3,3:i), '.');
         axis equal
+        title("ground truth");
     end
     
     figure(5)
@@ -271,6 +306,11 @@ if cfgp.plot_final
     plot3(x,y,z, 'r-');
     hold on
     plot3(x,y,z, 's');
+    if ds == 0
+        xlim([-100,200])
+        zlim([-60,200])
+    end
     view(0,0)
     axis equal
+    title("trajectory"); 
 end
