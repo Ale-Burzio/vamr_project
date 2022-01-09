@@ -22,7 +22,7 @@ Plots can be toggled on or off using the plot_XXX flags in the configuration fil
 The folders should be organized like this:
 
 ```
-project_folder
+vamr_project
 |
 | README.md
 | report.pdf
@@ -40,7 +40,7 @@ project_folder
 |	| PROJECT.m
 |	| getparameters.m
 |
-|___	datasets_folder
+|___	datasets
 	| 	kitti
 	|	|__	...
 	| 	parking
