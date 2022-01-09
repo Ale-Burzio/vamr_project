@@ -51,9 +51,9 @@ project_folder
 
 ## Dependencies
 
-*Image Processing Toolbox
-*Computer Vision Toolbox
-*Statistics and Machine Learning Toolbox
+* Image Processing Toolbox
+* Computer Vision Toolbox
+* Statistics and Machine Learning Toolbox
 
 ## Screencasts
 [Kitti dataset](https://youtu.be/r3xy4GOazSE)
